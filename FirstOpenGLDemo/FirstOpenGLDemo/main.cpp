@@ -10,7 +10,6 @@
 #include "GLMatrixStack.h"
 #include "GLFrame.h"
 #include "GLFrustum.h"
-#include "GLBatch.h"
 #include "GLGeometryTransform.h"
 
 #include <math.h>
@@ -21,461 +20,125 @@
 #include <GL/glut.h>
 #endif
 
-/*
- GLMatrixStack 变化管线使用矩阵堆栈
- 
- GLMatrixStack 构造函数允许指定堆栈的最大深度、默认的堆栈深度为64.这个矩阵堆在初始化时已经在堆栈中包含了单位矩阵。
- GLMatrixStack::GLMatrixStack(int iStackDepth = 64);
- 
- //通过调用顶部载入这个单位矩阵
- void GLMatrixStack::LoadIndentiy(void);
- 
- //在堆栈顶部载入任何矩阵
- void GLMatrixStack::LoadMatrix(const M3DMatrix44f m);
- */
-// 各种需要的类
-GLShaderManager        mShaderManager;
-GLMatrixStack        mModelViewMatrix;
-GLMatrixStack        mProjectionMatrix;
-GLFrame                mCameraFrame;
-GLFrame             mObjectFrame;
+GLShaderManager     mShaderManager;
+//设置观察者帧，作为相机
+GLFrame             mCameraFrame;
+//绘制甜甜圈的批次类
+GLTriangleBatch     mTorusBatch;
+//使用GLFrustum类来设置透视投影
+GLFrustum           mFrustum;
 //投影矩阵
-GLFrustum            mViewFrustum;
+GLMatrixStack       mProjectionMatrix;
+//几何图形渲染管线
+GLGeometryTransform mTransformPipeline;
+//模型视图矩阵
+GLMatrixStack       mModelViewMatrix;
 
-//容器类（7种不同的图元对应7种容器对象）
-GLBatch                mPointBatch;
-GLBatch                mLineBatch;
-GLBatch                mLineStripBatch;
-GLBatch                mLineLoopBatch;
-GLBatch                mTriangleBatch;
-GLBatch             mTriangleStripBatch;
-GLBatch             mTriangleFanBatch;
-
-//几何变换的管道
-GLGeometryTransform    mTransformPipeline;
-
-GLfloat mVgreen[] = { 0.0f, 1.0f, 0.0f, 1.0f };
-GLfloat mVblack[] = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-
-// 跟踪效果步骤
-int mStepNum = 0;
-
-
-
-// 此函数在呈现上下文中进行任何必要的初始化。.
-// 这是第一次做任何与opengl相关的任务。
-void SetupRC()
-{
-    // 灰色的背景
-    glClearColor(0.7f, 0.7f, 0.7f, 1.0f );
-    mShaderManager.InitializeStockShaders();
-    glEnable(GL_DEPTH_TEST);
-    //设置变换管线以使用两个矩阵堆栈
+//窗口改变
+void ChangeSize(int w, int h){
+    //1.防止 h变为0
+    if(h == 0){
+        h = 1;
+    }
+    //2.设置视窗尺寸
+    glViewport(0, 0, w, h);
+    //3.设置透视模式，初始化其透视矩阵
+    mFrustum.SetPerspective(35.0f, float(w)/float(h), 1.0f, 100.0f);
+    //4.把透视矩阵加载到透视矩阵堆栈中
+    mProjectionMatrix.LoadMatrix(mFrustum.GetProjectionMatrix());
+    //5.初始化渲染管线
     mTransformPipeline.SetMatrixStacks(mModelViewMatrix, mProjectionMatrix);
-    mCameraFrame.MoveForward(-15.0f);
-    
-    /*
-     常见函数：
-     void GLBatch::Begin(GLenum primitive,GLuint nVerts,GLuint nTextureUnits = 0);
-      参数1：表示使用的图元
-      参数2：顶点数
-      参数3：纹理坐标（可选）
-     
-     //负责顶点坐标
-     void GLBatch::CopyVertexData3f(GLFloat *vNorms);
-     
-     //结束，表示已经完成数据复制工作
-     void GLBatch::End(void);
-     
-     
-     */
-    //定义一些点，三角形形状。
-   
-    GLfloat vCoast[9] = {
-        3,3,0,0,3,0,3,0,0
-        
-    };
-    
-    //用点的形式
-    mPointBatch.Begin(GL_POINTS, 3);
-    mPointBatch.CopyVertexData3f(vCoast);
-    mPointBatch.End();
-    
-    //通过线的形式
-    mLineBatch.Begin(GL_LINES, 3);
-    mLineBatch.CopyVertexData3f(vCoast);
-    mLineBatch.End();
-    
-    //通过线段的形式
-    mLineStripBatch.Begin(GL_LINE_STRIP, 3);
-    mLineStripBatch.CopyVertexData3f(vCoast);
-    mLineStripBatch.End();
-    
-    //通过线环的形式
-    mLineLoopBatch.Begin(GL_LINE_LOOP, 3);
-    mLineLoopBatch.CopyVertexData3f(vCoast);
-    mLineLoopBatch.End();
-    
-//    通过三角形创建金字塔
-    GLfloat vPyramid[12][3] = {
-        -2.0f, 0.0f, -2.0f,
-        2.0f, 0.0f, -2.0f,
-        0.0f, 4.0f, 0.0f,
-
-        2.0f, 0.0f, -2.0f,
-        2.0f, 0.0f, 2.0f,
-        0.0f, 4.0f, 0.0f,
-
-        2.0f, 0.0f, 2.0f,
-        -2.0f, 0.0f, 2.0f,
-        0.0f, 4.0f, 0.0f,
-
-        -2.0f, 0.0f, 2.0f,
-        -2.0f, 0.0f, -2.0f,
-        0.0f, 4.0f, 0.0f
-        
-    };
-
-    
-    //GL_TRIANGLES 每3个顶点定义一个新的三角形
-    mTriangleBatch.Begin(GL_TRIANGLES, 12);
-    mTriangleBatch.CopyVertexData3f(vPyramid);
-    mTriangleBatch.End();
-    
-    
-    // 三角形扇形--六边形
-    GLfloat vPoints[100][3];
-    int nVerts = 0;
-    //半径
-    GLfloat r = 3.0f;
-    //原点(x,y,z) = (0,0,0);
-    vPoints[nVerts][0] = 0.0f;
-    vPoints[nVerts][1] = 0.0f;
-    vPoints[nVerts][2] = 0.0f;
-    
-    
-    //M3D_2PI 就是2Pi 的意思，就一个圆的意思。 绘制圆形
-    for(GLfloat angle = 0; angle < M3D_2PI; angle += M3D_2PI / 6.0f) {
-        
-        //数组下标自增（每自增1次就表示一个顶点）
-        nVerts++;
-        /*
-         弧长=半径*角度,这里的角度是弧度制,不是平时的角度制
-         既然知道了cos值,那么角度=arccos,求一个反三角函数就行了
-         */
-        //x点坐标 cos(angle) * 半径
-        vPoints[nVerts][0] = float(cos(angle)) * r;
-        //y点坐标 sin(angle) * 半径
-        vPoints[nVerts][1] = float(sin(angle)) * r;
-        //z点的坐标
-        vPoints[nVerts][2] = -0.5f;
-    }
-    
-    // 结束扇形 前面一共绘制7个顶点（包括圆心）
-    //添加闭合的终点
-    //课程添加演示：屏蔽177-180行代码，并把绘制节点改为7.则三角形扇形是无法闭合的。
-    nVerts++;
-    vPoints[nVerts][0] = r;
-    vPoints[nVerts][1] = 0;
-    vPoints[nVerts][2] = 0.0f;
-    
-    // 加载！
-    //GL_TRIANGLE_FAN 以一个圆心为中心呈扇形排列，共用相邻顶点的一组三角形
-    mTriangleFanBatch.Begin(GL_TRIANGLE_FAN, 8);
-    mTriangleFanBatch.CopyVertexData3f(vPoints);
-    mTriangleFanBatch.End();
-    
-    //三角形条带，一个小环或圆柱段
-    //顶点下标
-    int iCounter = 0;
-    //半径
-    GLfloat radius = 3.0f;
-    //从0度~360度，以0.3弧度为步长
-    for(GLfloat angle = 0.0f; angle <= (2.0f*M3D_PI); angle += 0.3f)
-    {
-        //或许圆形的顶点的X,Y
-        GLfloat x = radius * sin(angle);
-        GLfloat y = radius * cos(angle);
-        
-        //绘制2个三角形（他们的x,y顶点一样，只是z点不一样）
-        vPoints[iCounter][0] = x;
-        vPoints[iCounter][1] = y;
-        vPoints[iCounter][2] = -0.5;
-        iCounter++;
-        
-        vPoints[iCounter][0] = x;
-        vPoints[iCounter][1] = y;
-        vPoints[iCounter][2] = 0.5;
-        iCounter++;
-    }
-    
-    // 关闭循环
-    printf("三角形带的顶点数：%d\n",iCounter);
-    //结束循环，在循环位置生成2个三角形
-    vPoints[iCounter][0] = vPoints[0][0];
-    vPoints[iCounter][1] = vPoints[0][1];
-    vPoints[iCounter][2] = -0.5;
-    iCounter++;
-    
-    vPoints[iCounter][0] = vPoints[1][0];
-    vPoints[iCounter][1] = vPoints[1][1];
-    vPoints[iCounter][2] = 0.5;
-    iCounter++;
-    
-    // GL_TRIANGLE_STRIP 共用一个条带（strip）上的顶点的一组三角形
-    mTriangleStripBatch.Begin(GL_TRIANGLE_STRIP, iCounter);
-    mTriangleStripBatch.CopyVertexData3f(vPoints);
-    mTriangleStripBatch.End();
 }
 
-
-
-void DrawWireFramedBatch(GLBatch* pBatch)
-{
-    /*------------画绿色部分----------------*/
-    /* GLShaderManager 中的Uniform 值——平面着色器
-     参数1：平面着色器
-     参数2：运行为几何图形变换指定一个 4 * 4变换矩阵
-          --mTransformPipeline 变换管线（指定了2个矩阵堆栈）
-     参数3：颜色值
-    */
-    mShaderManager.UseStockShader(GLT_SHADER_FLAT, mTransformPipeline.GetModelViewProjectionMatrix(), mVgreen);
-    pBatch->Draw();
+//渲染场景
+void RenderScene(){
+    //1.清除窗口和深度缓冲区
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //2.开启正背面剔除功能 OpenGL ES
+    glEnable(GL_CULL_FACE);
+    //3.把摄像机矩阵压入模型矩阵中
+    mModelViewMatrix.PushMatrix(mCameraFrame);
+    //4.设置绘图颜色
+    GLfloat vRed[] = {1.0f,0.0f,0.0f,1.0f};
+    //5.使用平面着色器
+//     mShaderManager.UseStockShader(GLT_SHADER_FLAT, mTransformPipeline.GetModelViewProjectionMatrix(), vRed);
+    //使用光源着色器
+    mShaderManager.UseStockShader(GLT_SHADER_DEFAULT_LIGHT,mTransformPipeline.GetModelViewMatrix(),mTransformPipeline.GetProjectionMatrix(),vRed);
     
-    /*-----------边框部分-------------------*/
-    /*
-        glEnable(GLenum mode); 用于启用各种功能。功能由参数决定
-        参数列表：http://blog.csdn.net/augusdi/article/details/23747081
-        注意：glEnable() 不能写在glBegin() 和 glEnd()中间
-        GL_POLYGON_OFFSET_LINE  根据函数glPolygonOffset的设置，启用线的深度偏移
-        GL_LINE_SMOOTH          执行后，过虑线点的锯齿
-        GL_BLEND                启用颜色混合。例如实现半透明效果
-        GL_DEPTH_TEST           启用深度测试 根据坐标的远近自动隐藏被遮住的图形（材料
-     
-     
-        glDisable(GLenum mode); 用于关闭指定的功能 功能由参数决定
-     
-     */
-    
-    //画黑色边框
-    glPolygonOffset(-1.0f, -1.0f);// 偏移深度，在同一位置要绘制填充和边线，会产生z冲突，所以要偏移
-    glEnable(GL_POLYGON_OFFSET_LINE);
-    
-    // 画反锯齿，让黑边好看些
-    glEnable(GL_LINE_SMOOTH);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    //绘制线框几何黑色版 三种模式，实心，边框，点，可以作用在正面，背面，或者两面
-    //通过调用glPolygonMode将多边形正面或者背面设为线框模式，实现线框渲染
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    //设置线条宽度
-    glLineWidth(2.5f);
-    
-    /* GLShaderManager 中的Uniform 值——平面着色器
-     参数1：平面着色器
-     参数2：运行为几何图形变换指定一个 4 * 4变换矩阵
-         --mTransformPipeline.GetModelViewProjectionMatrix() 获取的
-          GetMatrix函数就可以获得矩阵堆栈顶部的值
-     参数3：颜色值（黑色）
-     */
-    
-    mShaderManager.UseStockShader(GLT_SHADER_FLAT, mTransformPipeline.GetModelViewProjectionMatrix(), mVblack);
-    pBatch->Draw();
-
-    // 复原原本的设置
-    //通过调用glPolygonMode将多边形正面或者背面设为全部填充模式
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glDisable(GL_POLYGON_OFFSET_LINE);
-    glLineWidth(1.0f);
-    glDisable(GL_BLEND);
-    glDisable(GL_LINE_SMOOTH);
-    
-    
-}
-
-
-
-// 召唤场景
-void RenderScene(void)
-{
-    // Clear the window with current clearing color
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-   
-    //压栈
-    mModelViewMatrix.PushMatrix();
-    M3DMatrix44f camera;
-    mCameraFrame.GetCameraMatrix(camera);
-    
-    //矩阵乘以矩阵堆栈的顶部矩阵，相乘的结果随后简存储在堆栈的顶部
-    mModelViewMatrix.MultMatrix(camera);
-    
-    M3DMatrix44f objectFrame;
-    //只要使用 GetMatrix 函数就可以获取矩阵堆栈顶部的值，这个函数可以进行2次重载。用来使用GLShaderManager 的使用。或者是获取顶部矩阵的顶点副本数据
-    mObjectFrame.GetMatrix(objectFrame);
-    
-    //矩阵乘以矩阵堆栈的顶部矩阵，相乘的结果随后简存储在堆栈的顶部
-    mModelViewMatrix.MultMatrix(mObjectFrame);
-    
-    /* GLShaderManager 中的Uniform 值——平面着色器
-     参数1：平面着色器
-     参数2：运行为几何图形变换指定一个 4 * 4变换矩阵
-     --mTransformPipeline.GetModelViewProjectionMatrix() 获取的
-     GetMatrix函数就可以获得矩阵堆栈顶部的值
-     参数3：颜色值（黑色）
-     */
-    mShaderManager.UseStockShader(GLT_SHADER_FLAT, mTransformPipeline.GetModelViewProjectionMatrix(), mVblack);
-    
-    switch(mStepNum) {
-        case 0:
-            //设置点的大小
-            glPointSize(4.0f);
-            mPointBatch.Draw();
-            glPointSize(1.0f);
-            break;
-        case 1:
-            //设置线的宽度
-            glLineWidth(2.0f);
-            mLineBatch.Draw();
-            glLineWidth(1.0f);
-            break;
-        case 2:
-            glLineWidth(2.0f);
-            mLineStripBatch.Draw();
-            glLineWidth(1.0f);
-            break;
-        case 3:
-            glLineWidth(2.0f);
-            mLineLoopBatch.Draw();
-            glLineWidth(1.0f);
-            break;
-        case 4:
-            DrawWireFramedBatch(&mTriangleBatch);
-            break;
-        case 5:
-            DrawWireFramedBatch(&mTriangleStripBatch);
-            break;
-        case 6:
-            DrawWireFramedBatch(&mTriangleFanBatch);
-            break;
-    }
-    
-    //还原到以前的模型视图矩阵（单位矩阵）
+    //6.绘制
+    mTorusBatch.Draw();
+    //7.出栈 绘制完成恢复
     mModelViewMatrix.PopMatrix();
-    
-    // 进行缓冲区交换
+    //8.交换缓冲区
     glutSwapBuffers();
 }
-
-
-//特殊键位处理（上、下、左、右移动）
+void SetupRC(){
+    //1.设置背景色
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f );
+    //2.初始化着色器管理器
+    mShaderManager.InitializeStockShaders();
+    //3.将相机向后移动7个单位,可以理解为 肉眼和物体之间的距离
+    mCameraFrame.MoveForward(7.0);
+    //4.创建一个甜甜圈
+    //void gltMakeTorus(GLTriangleBatch& torusBatch, GLfloat majorRadius, GLfloat minorRadius, GLint numMajor, GLint numMinor);
+    //参数1：GLTriangleBatch 容器帮助类
+    //参数2：外边缘半径
+    //参数3：内边缘半径
+    //参数4、5：主半径和从半径的细分单元数量
+    gltMakeTorus(mTorusBatch, 1.0f, 0.3f,52, 26);
+    //5.点的大小（方便点填充时，肉眼观察）;
+    glPointSize(4.0f);
+    
+}
+//键位设置，通过不同的键位对其进行设置
+//控制Camera的移动，从而改变视口
 void SpecialKeys(int key, int x, int y)
 {
-    
+    //1.判断方向
     if(key == GLUT_KEY_UP)
-        //围绕一个指定的X,Y,Z轴旋转。
-        mObjectFrame.RotateWorld(m3dDegToRad(-5.0f), 1.0f, 0.0f, 0.0f);
+        //2.根据方向调整观察者位置
+        mCameraFrame.RotateWorld(m3dDegToRad(-5.0), 1.0f, 0.0f, 0.0f);
     
     if(key == GLUT_KEY_DOWN)
-        mObjectFrame.RotateWorld(m3dDegToRad(5.0f), 1.0f, 0.0f, 0.0f);
+        mCameraFrame.RotateWorld(m3dDegToRad(5.0), 1.0f, 0.0f, 0.0f);
     
     if(key == GLUT_KEY_LEFT)
-        mObjectFrame.RotateWorld(m3dDegToRad(-5.0f), 0.0f, 1.0f, 0.0f);
+        mCameraFrame.RotateWorld(m3dDegToRad(-5.0), 0.0f, 1.0f, 0.0f);
     
     if(key == GLUT_KEY_RIGHT)
-        mObjectFrame.RotateWorld(m3dDegToRad(5.0f), 0.0f, 1.0f, 0.0f);
+        mCameraFrame.RotateWorld(m3dDegToRad(5.0), 0.0f, 1.0f, 0.0f);
     
+    //3.重新刷新
     glutPostRedisplay();
 }
-
-
-
-
-//根据空格次数。切换不同的“窗口名称”
-void KeyPressFunc(unsigned char key, int x, int y)
-{
-    if(key == 32)
-    {
-        mStepNum++;
-        
-        if(mStepNum > 6)
-            mStepNum = 0;
-    }
-    
-    switch(mStepNum)
-    {
-        case 0:
-            glutSetWindowTitle("GL_POINTS");
-            break;
-        case 1:
-            glutSetWindowTitle("GL_LINES");
-            break;
-        case 2:
-            glutSetWindowTitle("GL_LINE_STRIP");
-            break;
-        case 3:
-            glutSetWindowTitle("GL_LINE_LOOP");
-            break;
-        case 4:
-            glutSetWindowTitle("GL_TRIANGLES");
-            break;
-        case 5:
-            glutSetWindowTitle("GL_TRIANGLE_STRIP");
-            break;
-        case 6:
-            glutSetWindowTitle("GL_TRIANGLE_FAN");
-            break;
-    }
-    
-    glutPostRedisplay();
-}
-
-
-// 窗口已更改大小，或刚刚创建。无论哪种情况，我们都需要
-// 使用窗口维度设置视口和投影矩阵.
-void ChangeSize(int w, int h)
-{
-    glViewport(0, 0, w, h);
-    //创建投影矩阵，并将它载入投影矩阵堆栈中
-    mViewFrustum.SetPerspective(35.0f, float(w) / float(h), 1.0f, 500.0f);
-    mProjectionMatrix.LoadMatrix(mViewFrustum.GetProjectionMatrix());
-    
-    //调用顶部载入单元矩阵
-    mModelViewMatrix.LoadIdentity();
-}
-
-
-int main(int argc, char* argv[])
-{
+/// 初始化 OpenGL
+/// @param arg 入参
+int  initOpenGL(int argc, char* argv[]){
     gltSetWorkingDirectory(argv[0]);
     glutInit(&argc, argv);
-    //申请一个颜色缓存区、深度缓存区、双缓存区、模板缓存区
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH | GLUT_STENCIL);
-    //设置window 的尺寸
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowSize(800, 600);
-    //创建window的名称
-    glutCreateWindow("GL_POINTS");
-    //注册回调函数（改变尺寸）
+    glutCreateWindow("几何测试程序");
+    ///注册函数
     glutReshapeFunc(ChangeSize);
-    //点击空格时，调用的函数
-    glutKeyboardFunc(KeyPressFunc);
-    //特殊键位函数（上下左右）
     glutSpecialFunc(SpecialKeys);
-    //显示函数
     glutDisplayFunc(RenderScene);
     
-    //判断一下是否能初始化glew库，确保项目能正常使用OpenGL 框架
+    //初始化检查
     GLenum err = glewInit();
-    if (GLEW_OK != err) {
-        fprintf(stderr, "GLEW Error: %s\n", glewGetErrorString(err));
+    if(GLEW_OK != err){
+        fprintf(stderr, "GLEW 错误 %s\n",glewGetErrorString(err));
         return 1;
     }
     
-    //绘制
+    //开始设置
     SetupRC();
-    
-    //runloop运行循环
     glutMainLoop();
     return 0;
+}
+
+int main(int argc, char* argv[])
+{
+   return  initOpenGL(argc,argv);
+    
 }
