@@ -56,6 +56,9 @@ void RenderScene(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //2.开启正背面剔除功能 OpenGL ES
     glEnable(GL_CULL_FACE);
+    
+//    glDisable(GL_CULL_FACE);//关闭正背面剔除功能.
+    
     //3.把摄像机矩阵压入模型矩阵中
     mModelViewMatrix.PushMatrix(mCameraFrame);
     //4.设置绘图颜色
