@@ -45,6 +45,10 @@
 		5A3FA3E824B0DEA900B4F3F6 /* libGLTools.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libGLTools.a; sourceTree = "<group>"; };
 		5A3FA3EB24B0DEF200B4F3F6 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		5A3FA3ED24B0DEF800B4F3F6 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
+		706B5344D90E4A80659F56E8 /* stone.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = stone.tga; sourceTree = "<group>"; };
+		706B540E3B1F7D0CE27043DF /* brick.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = brick.tga; sourceTree = "<group>"; };
+		706B588CEF204F815CA0BE24 /* ceiling.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = ceiling.tga; sourceTree = "<group>"; };
+		706B5D28274CD9EBAB34A195 /* floor.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = floor.tga; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +88,10 @@
 				5A3FA3E824B0DEA900B4F3F6 /* libGLTools.a */,
 				5A3FA3D824B0DE9C00B4F3F6 /* include */,
 				5A3FA3D124B0DE6500B4F3F6 /* main.cpp */,
+				706B540E3B1F7D0CE27043DF /* brick.tga */,
+				706B5D28274CD9EBAB34A195 /* floor.tga */,
+				706B588CEF204F815CA0BE24 /* ceiling.tga */,
+				706B5344D90E4A80659F56E8 /* stone.tga */,
 			);
 			path = FirstOpenGLDemo;
 			sourceTree = "<group>";

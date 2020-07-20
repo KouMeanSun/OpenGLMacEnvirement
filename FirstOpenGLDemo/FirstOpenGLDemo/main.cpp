@@ -22,171 +22,324 @@
 #include <GL/glut.h>
 #endif
 
-GLShaderManager shaderManager;     //着色器管理器
-GLMatrixStack   modelViewMatrix;    //模型视图矩阵堆栈
-GLMatrixStack   projectionMatrix;   //投影矩阵堆栈
-GLFrustum       viewFrustum;        //视景体
-GLGeometryTransform transformPipline;   //几何图形变换管道
+GLShaderManager         shaderManager;
+GLMatrixStack           modelViewMatrix;
+GLMatrixStack           projectionMatrix;
+GLFrame                 cameraFrame;
+GLFrame                 objectFrame;
+GLFrustum               viewFrustum;
 
-GLTriangleBatch     torusBatch;     //大球 （太阳）
-GLTriangleBatch     sphereBatch;    //小球 (卫星)
-GLBatch             floorBatch;     //地板
+GLBatch                 pypamidBatch;
 
-//角色帧  照相机角色帧
-GLFrame     cameraFrame;
+//纹理变量，一般使用无符号整型
+GLuint                  textureID;
+
+GLGeometryTransform     transformPipeline;
+M3DMatrix44f            shadowMatrix;
+
+//绘制金字塔
+void MakePypramid(GLBatch& pyramidBatch){
+    /**
+     * 1.通过pyramidBatch组件三角形批次
+     * 参数1：类型
+     * 参数2:顶点数
+     * 参数3：这个批次中将会应用一个纹理
+     * 注意：如果不写这个参数，默认为0
+     */
+     pyramidBatch.Begin(GL_TRIANGLES, 18, 1);
+    /***前情导入
+
+    2)设置纹理坐标
+    void MultiTexCoord2f(GLuint texture, GLclampf s, GLclampf t);
+    参数1：texture，纹理层次，对于使用存储着色器来进行渲染，设置为0
+    参数2：s：对应顶点坐标中的x坐标
+    参数3：t:对应顶点坐标中的y
+    (s,t,r,q对应顶点坐标的x,y,z,w)
+
+    pyramidBatch.MultiTexCoord2f(0,s,t);
+
+    3)void Vertex3f(GLfloat x, GLfloat y, GLfloat z);
+     void Vertex3fv(M3DVector3f vVertex);
+    向三角形批次类添加顶点数据(x,y,z);
+     pyramidBatch.Vertex3f(-1.0f, -1.0f, -1.0f);
+
+    */
+    //塔顶
+    M3DVector3f vApex = { 0.0f, 1.0f, 0.0f };
+    M3DVector3f vFrontLeft = { -1.0f, -1.0f, 1.0f };
+    M3DVector3f vFrontRight = { 1.0f, -1.0f, 1.0f };
+    M3DVector3f vBackLeft = { -1.0f,  -1.0f, -1.0f };
+    M3DVector3f vBackRight = { 1.0f,  -1.0f, -1.0f };
+
+    //金字塔底部
+    //底部的四边形 = 三角形X + 三角形Y
+    //三角形X = (vBackLeft,vBackRight,vFrontRight)
+    //vBackLeft
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackLeft);
+
+    //vBackRight
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackRight);
+
+    //vFrontRight
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 1.0f);
+    pyramidBatch.Vertex3fv(vFrontRight);
 
 
-//**4. 添加附加随机球
-#define NUM_SPHERES 50
-GLFrame  spheres[NUM_SPHERES];
+    //三角形Y =(vFrontLeft,vBackLeft,vFrontRight)
+    //vFrontLeft
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 1.0f);
+    pyramidBatch.Vertex3fv(vFrontLeft);
+
+    //vBackLeft
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackLeft);
+
+    //vFrontRight
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 1.0f);
+    pyramidBatch.Vertex3fv(vFrontRight);
+
+
+    // 金字塔前面
+    //三角形：（Apex，vFrontLeft，vFrontRight）
+    pyramidBatch.MultiTexCoord2f(0, 0.5f, 1.0f);
+    pyramidBatch.Vertex3fv(vApex);
+
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vFrontLeft);
+
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vFrontRight);
+
+    //金字塔左边
+    //三角形：（vApex, vBackLeft, vFrontLeft）
+    pyramidBatch.MultiTexCoord2f(0, 0.5f, 1.0f);
+    pyramidBatch.Vertex3fv(vApex);
+
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackLeft);
+
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vFrontLeft);
+    //金字塔右边
+    //三角形：（vApex, vFrontRight, vBackRight）
+    pyramidBatch.MultiTexCoord2f(0, 0.5f, 1.0f);
+    pyramidBatch.Vertex3fv(vApex);
+
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vFrontRight);
+
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackRight);
+
+    //金字塔后边
+    //三角形：（vApex, vBackRight, vBackLeft）
+    pyramidBatch.MultiTexCoord2f(0, 0.5f, 1.0f);
+    pyramidBatch.Vertex3fv(vApex);
+
+    pyramidBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackRight);
+
+    pyramidBatch.MultiTexCoord2f(0, 1.0f, 0.0f);
+    pyramidBatch.Vertex3fv(vBackLeft);
+
+    //结束批次设置
+    pyramidBatch.End();
+}
+
+// 将TGA 文件加载为2D纹理
+bool LoadTGATexture(const char *szFileName,GLenum minFilter,GLenum magFilter,GLenum wrapModel){
+    GLbyte  *pBits;
+    int nWidth ,nHeight,nComponents;
+    GLenum  eFormat;
+
+    //1、读纹理位，读取像素
+    //参数1：纹理文件名称
+    //参数2：文件宽度地址
+    //参数3：文件高度地址
+    //参数4：文件组件地址
+    //参数5：文件格式地址
+    //返回值：pBits,指向图像数据的指针
+    pBits = gltReadTGABits(szFileName, &nWidth, &nHeight, &nComponents, &eFormat);
+    if(pBits == NULL){
+        return false;
+    }
+    //2、设置纹理参数
+    //参数1：纹理维度
+    //参数2：为S/T坐标设置模式
+    //参数3：wrapMode,环绕模式
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapModel);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapModel);
+
+    //参数1：纹理维度
+    //参数2：线性过滤
+    //参数3: 缩小/放大过滤方式.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+
+    //3.载入纹理
+    //参数1：纹理维度
+    //参数2：mip贴图层次
+    //参数3：纹理单元存储的颜色成分（从读取像素图是获得）
+    //参数4：加载纹理宽
+    //参数5：加载纹理高
+    //参数6：加载纹理的深度
+    //参数7：像素数据的数据类型（GL_UNSIGNED_BYTE，每个颜色分量都是一个8位无符号整数）
+    //参数8：指向纹理图像数据的指针
+    glTexImage2D(GL_TEXTURE_2D, 0, nComponents, nWidth, nHeight, 0, eFormat, GL_UNSIGNED_BYTE, pBits);
+
+    //使用完毕释放pBits
+    free(pBits);
+    //只有minFilter 等于以下四种模式，才可以生成Mip贴图
+    //GL_NEAREST_MIPMAP_NEAREST具有非常好的性能，并且闪烁现象非常弱
+    //GL_LINEAR_MIPMAP_NEAREST常常用于对游戏进行加速，它使用了高质量的线性过滤器
+    //GL_LINEAR_MIPMAP_LINEAR 和GL_NEAREST_MIPMAP_LINEAR 过滤器在Mip层之间执行了一些额外的插值，以消除他们之间的过滤痕迹。
+    //GL_LINEAR_MIPMAP_LINEAR 三线性Mip贴图。纹理过滤的黄金准则，具有最高的精度。
+    if(minFilter == GL_LINEAR_MIPMAP_LINEAR ||
+        minFilter == GL_LINEAR_MIPMAP_NEAREST ||
+        minFilter == GL_NEAREST_MIPMAP_LINEAR||
+        minFilter == GL_NEAREST_MIPMAP_NEAREST){
+        //4.纹理生成所有的Mip层
+        //参数：GL_TEXTURE_1D、GL_TEXTURE_2D、GL_TEXTURE_3D
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
+    return true;
+}
 
 void SetupRC(){
-    //1.初始化
-    glClearColor(0, 0, 0, 1);
+    glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
     shaderManager.InitializeStockShaders();
+
     glEnable(GL_DEPTH_TEST);
+    //分配纹理对象 参数1:纹理对象个数，参数2:纹理对象指针
+    glGenTextures(1, &textureID);
 
-    // 地板数据（物体坐标系）
-    floorBatch.Begin(GL_LINES, 324);
-    for(GLfloat x = -20.0f; x<= 20.0f;x += 0.5){
-       floorBatch.Vertex3f(x, -0.55f, 20.0f);
-       floorBatch.Vertex3f(x, -0.55f, -20.0f);
+    //绑定纹理状态 参数1：纹理状态2D，参数2 纹理对象
+    glBindTexture(GL_TEXTURE_2D, textureID);
 
-       floorBatch.Vertex3f(20.0f, -0.55f, x);
-       floorBatch.Vertex3f(-20.0f, -0.55f, x);
-    }
-    floorBatch.End();
+    //将TGA文件加载为2D纹理。
+    //参数1：纹理文件名称
+    //参数2&参数3：需要缩小&放大的过滤器
+    //参数4：纹理坐标环绕模式 stone.tga
 
-    // 设置一个球体(基于gltools模型)
-    gltMakeSphere(torusBatch, 0.4f, 40, 80);
+    LoadTGATexture("/Users/gaomingyang/Documents/MG/MIGUWorkSpace/OpenGLWorkSpace/CodeTest/OpenGLMacEnvirement/FirstOpenGLDemo/FirstOpenGLDemo/stone.tga", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR, GL_CLAMP_TO_EDGE);
 
-    //绘制小球
-    gltMakeSphere(sphereBatch, 0.1f, 13, 26);
-    //随机位置放置小球
-    for(int i=0;i<NUM_SPHERES;i++){
-        //y轴不变，x，z产生随机值
-        GLfloat x = ((GLfloat)((rand()%400) -200) * 0.1f);
-        GLfloat z = ((GLfloat)((rand()%400) -200) * 0.1f);
-
-        //在y方向 ，将球体设置为0.0的位置，这使得它们看起来是漂浮在眼镜的高度
-        //对spheres数组中的每一个顶点，设置顶点数据
-        spheres[i].SetOrigin(x,0.0f,z);
-    }
+    //4.创造金字塔pyramidBatch
+    MakePypramid(pypamidBatch);
+    //5.
+    /**相机frame MoveForward(平移)
+    参数1：Z，深度（屏幕到图形的Z轴距离）
+     */
+    cameraFrame.MoveForward(-10);
 }
 
-//进行调用以绘制场景
+//清理 eg：删除纹理对象
+void ShutdownRC(void){
+    glDeleteTextures(1, &textureID);
+}
+
 void RenderScene(void){
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //1.颜色值&光源位置
+    static GLfloat vLightPos[] = {1.0f,1.0f,0.0f};
+    static GLfloat vWhite[]  = {1.0f,1.0f,1.0f,1.0f};
 
-    //1.颜色（地板，打球颜色，小球颜色）
-    static GLfloat vFloorColor[] = {0.0f,1.0f,0.0f,1.0f};
-    static GLfloat vTorusColor[] = {1.0f,0.0f,0.0f,1.0f};
-    static GLfloat vSpereColor[] = {0.0f,0.0f,1.0f,1.0f};
+    //2.清理缓存区
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    //2.动画
-    static CStopWatch rotTimer;
-    float yRot = rotTimer.GetElapsedSeconds()*60.0f;
-
+    //3.当前模型视频压栈
     modelViewMatrix.PushMatrix();
-    //3. 压栈
-    M3DMatrix44f mCamera;
+
+    //添加相机矩阵
+    M3DMatrix44f  mCamera;
+    //从camraFrame中获取一个4*4矩阵
     cameraFrame.GetCameraMatrix(mCamera);
-    modelViewMatrix.PushMatrix(mCamera);
+    //矩阵乘以矩阵堆栈顶部矩阵，相乘结果存储到堆栈的顶部 将照相机矩阵 与 当前模型矩阵相乘 压入栈顶
+    modelViewMatrix.MultMatrix(mCamera);
 
-    //4.地面绘制
-    shaderManager.UseStockShader(GLT_SHADER_FLAT,transformPipline.GetModelViewProjectionMatrix(),vFloorColor);
-    floorBatch.Draw();
+    //创建mObjectFrame矩阵
+    M3DMatrix44f  mObjectFrame;
+    //从objectFrame中获取矩阵，objectFrame保存的是特殊键位的变换矩阵
+    objectFrame.GetMatrix(mObjectFrame);
+    //矩阵诚意矩阵堆栈顶部矩阵，相乘结果存储到堆栈的顶部 将世界变换局在行业内 与当前模型矩阵相乘 压入栈顶
+    modelViewMatrix.MultMatrix(mObjectFrame);
 
-    //5.设置点光源位置
-    M3DVector4f vLightPos = {0,10,5,1};
+    //4.绑定纹理，因为我们项目中只有一个纹理，如果多个纹理，绑定纹理很重要
+    glBindTexture(GL_TEXTURE_2D, textureID);
 
-    //6.使得整个打球往里面平移3.0
-    modelViewMatrix.Translate(0.0f, 0.0f, -3.0f);
+    //5.纹理替换矩阵着色器
+    /*
+    参数1：GLT_SHADER_TEXTURE_REPLACE（着色器标签）
+    参数2：模型视图投影矩阵
+    参数3：纹理层
+    */
+    shaderManager.UseStockShader(GLT_SHADER_TEXTURE_REPLACE,transformPipeline.GetModelViewProjectionMatrix(),0);
 
-    //7.大球
-    modelViewMatrix.PushMatrix();
-    modelViewMatrix.Rotate(yRot, 0, 1, 0);
-    shaderManager.UseStockShader(GLT_SHADER_POINT_LIGHT_DIFF,transformPipline.GetModelViewMatrix(),transformPipline.GetProjectionMatrix(),vLightPos,vTorusColor);
-    torusBatch.Draw();
+    //pyramidBatch 绘制
+    pypamidBatch.Draw();
+
+    //模型视图出栈，回复矩阵 ，push一次就要pop一次
     modelViewMatrix.PopMatrix();
 
-    //8.小球
-    for(int i=0;i<NUM_SPHERES;i++ ){
-        modelViewMatrix.PushMatrix();
-        modelViewMatrix.MultMatrix(spheres[i]);
-        shaderManager.UseStockShader(GLT_SHADER_POINT_LIGHT_DIFF,transformPipline.GetModelViewMatrix(),transformPipline.GetProjectionMatrix(),vLightPos,vSpereColor);
-        sphereBatch.Draw();
-        modelViewMatrix.PopMatrix();
-    }
-
-    //9.让一个小球围绕着打球公转;
-    modelViewMatrix.Rotate(yRot * -2.0f, 0, 1, 0);
-    modelViewMatrix.Translate(0.8f, 0.0f, 0.0f);
-    shaderManager.UseStockShader(GLT_SHADER_POINT_LIGHT_DIFF,transformPipline.GetModelViewMatrix(),transformPipline.GetProjectionMatrix(),vLightPos,vSpereColor);
-    sphereBatch.Draw();
-
-    modelViewMatrix.PopMatrix();
-    modelViewMatrix.PopMatrix();
+    // 6.交换缓冲区
     glutSwapBuffers();
-    glutPostRedisplay();
-
 }
 
-//屏幕更改大小或已初始化
-void ChangeSize(int width ,int height){
-    //1.设置视口
+void SpecialKeys(int key,int x,int y){
+    if(key == GLUT_KEY_UP){
+        objectFrame.RotateWorld(m3dDegToRad(-5.0f), 1.0f, 0.0f, 0.0f);
+    }
+    if(key == GLUT_KEY_DOWN){
+        objectFrame.RotateWorld(m3dDegToRad(5.0f), 1.0f, 0.0f, 0.0f);
+    }
+    if(key == GLUT_KEY_LEFT){
+        objectFrame.RotateWorld(m3dDegToRad(-5.0f), 0.0f, 1.0f, 0.0f);
+    }
+    if(key == GLUT_KEY_RIGHT){
+        objectFrame.RotateWorld(m3dDegToRad(5.0f), 0.0f, 1.0f, 0.0f);
+    }
+    glutPostRedisplay();
+}
+
+void ChangeSize(int width,int height){
+    //1.设置窗口
     glViewport(0, 0, width, height);
 
     //2.创建投影矩阵
-    viewFrustum.SetPerspective(35.0f, float(width)/float(height), 1.0f, 100.0f);
+    viewFrustum.SetPerspective(35.0F, float(width)/float(height), 1.0f, 500.0f);
+
+    //viewFrustum.GetProjectionMatrix()  获取viewFrustum投影矩阵
+    //并将其加载到投影矩阵堆栈上
     projectionMatrix.LoadMatrix(viewFrustum.GetProjectionMatrix());
 
-    //3.变换管道设置2个矩阵堆栈（管理）
-    transformPipline.SetMatrixStacks(modelViewMatrix, projectionMatrix);
-}
-
-void SpeacialKeys(int key,int x,int y){
-    float linear = 0.1f;
-    float anguar = float(m3dDegToRad(5.0f));
-
-    if(key == GLUT_KEY_UP){
-        cameraFrame.MoveForward(linear);
-    }
-    if(key == GLUT_KEY_DOWN){
-        cameraFrame.MoveForward(-linear);
-    }
-
-    if(key == GLUT_KEY_LEFT){
-        cameraFrame.RotateWorld(anguar, 0, 1, 0);
-    }
-    if(key == GLUT_KEY_RIGHT){
-        cameraFrame.RotateWorld(-anguar, 0, 1, 0);
-    }
+    //3.设置变换管道以使用两个矩阵堆栈（变换矩阵modelViewMatrix ，投影矩阵projectionMatrix）
+    //初始化GLGeometryTransform 的实例transformPipeline.通过将它的内部指针设置为模型视图矩阵堆栈 和 投影矩阵堆栈实例，来完成初始化
+    //当然这个操作也可以在SetupRC 函数中完成，但是在窗口大小改变时或者窗口创建时设置它们并没有坏处。而且这样可以一次性完成矩阵和管线的设置。
+    transformPipeline.SetMatrixStacks(modelViewMatrix, projectionMatrix);
 }
 
 int main(int argc,char* argv[]){
     gltSetWorkingDirectory(argv[0]);
 
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH | GLUT_STENCIL);
     glutInitWindowSize(800, 600);
-
-    glutCreateWindow("OpenGL sphereWorld");
-
+    glutCreateWindow("Pyramid");
     glutReshapeFunc(ChangeSize);
+    glutSpecialFunc(SpecialKeys);
     glutDisplayFunc(RenderScene);
-    glutSpecialFunc(SpeacialKeys);
 
     GLenum  err = glewInit();
-    if(GLEW_OK != err){
+    if( GLEW_OK != err){
         fprintf(stderr, "GLEW Error:%s\n", glewGetErrorString(err));
         return 1;
     }
 
     SetupRC();
     glutMainLoop();
+
+    ShutdownRC();
     return 0;
 }
-
-
 
