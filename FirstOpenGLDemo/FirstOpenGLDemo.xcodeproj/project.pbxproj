@@ -47,6 +47,9 @@
 		5A3FA3ED24B0DEF800B4F3F6 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		706B57081C9BBDD453201792 /* Marslike.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = Marslike.tga; sourceTree = "<group>"; };
 		706B57EB93BF4AC8764E48A2 /* MoonLike.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = MoonLike.tga; sourceTree = "<group>"; };
+		706B59969842DBBF9FB2347A /* floor.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = floor.tga; sourceTree = "<group>"; };
+		706B5D7C8C407311D92FEA8B /* ceiling.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = ceiling.tga; sourceTree = "<group>"; };
+		706B5DA2F1E57FD0123B9EBE /* brick.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = brick.tga; sourceTree = "<group>"; };
 		706B5DAACE5AEB94C7059083 /* Marble.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = Marble.tga; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -136,6 +139,9 @@
 				706B5DAACE5AEB94C7059083 /* Marble.tga */,
 				706B57EB93BF4AC8764E48A2 /* MoonLike.tga */,
 				706B57081C9BBDD453201792 /* Marslike.tga */,
+				706B5DA2F1E57FD0123B9EBE /* brick.tga */,
+				706B59969842DBBF9FB2347A /* floor.tga */,
+				706B5D7C8C407311D92FEA8B /* ceiling.tga */,
 			);
 			path = tga;
 			sourceTree = "<group>";
