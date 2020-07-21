@@ -45,6 +45,9 @@
 		5A3FA3E824B0DEA900B4F3F6 /* libGLTools.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libGLTools.a; sourceTree = "<group>"; };
 		5A3FA3EB24B0DEF200B4F3F6 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		5A3FA3ED24B0DEF800B4F3F6 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
+		706B57081C9BBDD453201792 /* Marslike.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = Marslike.tga; sourceTree = "<group>"; };
+		706B57EB93BF4AC8764E48A2 /* MoonLike.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = MoonLike.tga; sourceTree = "<group>"; };
+		706B5DAACE5AEB94C7059083 /* Marble.tga */ = {isa = PBXFileReference; lastKnownFileType = file.tga; path = Marble.tga; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +87,7 @@
 				5A3FA3E824B0DEA900B4F3F6 /* libGLTools.a */,
 				5A3FA3D824B0DE9C00B4F3F6 /* include */,
 				5A3FA3D124B0DE6500B4F3F6 /* main.cpp */,
+				706B51DB0751D97F6B7A29A9 /* tga */,
 			);
 			path = FirstOpenGLDemo;
 			sourceTree = "<group>";
@@ -124,6 +128,16 @@
 				5A3FA3EB24B0DEF200B4F3F6 /* OpenGL.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		706B51DB0751D97F6B7A29A9 /* tga */ = {
+			isa = PBXGroup;
+			children = (
+				706B5DAACE5AEB94C7059083 /* Marble.tga */,
+				706B57EB93BF4AC8764E48A2 /* MoonLike.tga */,
+				706B57081C9BBDD453201792 /* Marslike.tga */,
+			);
+			path = tga;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

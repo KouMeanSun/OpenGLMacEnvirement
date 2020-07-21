@@ -22,145 +22,311 @@
 #include <GL/glut.h>
 #endif
 
+
+#define NUM_SPHERES 50
+GLFrame spheres[NUM_SPHERES];
+
 GLShaderManager shaderManager;     //着色器管理器
 GLMatrixStack   modelViewMatrix;    //模型视图矩阵堆栈
 GLMatrixStack   projectionMatrix;   //投影矩阵堆栈
 GLFrustum       viewFrustum;        //视景体
 GLGeometryTransform transformPipline;   //几何图形变换管道
 
-GLTriangleBatch     torusBatch;     //大球 （太阳）
-GLTriangleBatch     sphereBatch;    //小球 (卫星)
+GLTriangleBatch     torusBatch;     //花托批处理
 GLBatch             floorBatch;     //地板
 
-//角色帧  照相机角色帧
+// 定义公转球的批次类(公转自转)
+GLTriangleBatch     sphereBatch;
+
+//角色帧  照相机角色帧(全局照相机实例)
 GLFrame     cameraFrame;
 
+//5.添加纹理
+//纹理标记数组
+GLuint   uiTextures[3];
 
-//**4. 添加附加随机球
-#define NUM_SPHERES 50
-GLFrame  spheres[NUM_SPHERES];
+bool  LoadTGATexture(const char *szFileName ,GLenum minFilter,GLenum magFilter,GLenum wrapMode){
+    GLbyte *pBits;
+    int nWidth,nHeight,nComponents;
+    GLenum  eFormat;
+
+    //1.读取纹理数据
+    pBits = gltReadTGABits(szFileName, &nWidth, &nHeight, &nComponents, &eFormat);
+    if(pBits == NULL){
+        return false;
+    }
+    //2、设置纹理参数
+    //参数1：纹理维度
+    //参数2：为S/T坐标设置模式
+    //参数3：wrapMode,环绕模式
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapMode);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapMode);
+
+    //参数1：纹理维度
+    //参数2：线性过滤
+    //参数3：wrapMode,环绕模式
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+
+    //3.载入纹理
+    //参数1：纹理维度
+    //参数2：mip贴图层次
+    //参数3：纹理单元存储的颜色成分（从读取像素图是获得）-将内部参数nComponents改为了通用压缩纹理格式GL_COMPRESSED_RGB
+    //参数4：加载纹理宽
+    //参数5：加载纹理高
+    //参数6：加载纹理的深度
+    //参数7：像素数据的数据类型（GL_UNSIGNED_BYTE，每个颜色分量都是一个8位无符号整数）
+    //参数8：指向纹理图像数据的指针
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB, nWidth, nHeight, 0, eFormat, GL_UNSIGNED_BYTE, pBits);
+
+    //使用完毕释放pBits
+    free(pBits);
+
+    //只有minFilter 等于以下四种模式，才可以生成Mip贴图
+    //GL_NEAREST_MIPMAP_NEAREST具有非常好的性能，并且闪烁现象非常弱
+    //GL_LINEAR_MIPMAP_NEAREST常常用于对游戏进行加速，它使用了高质量的线性过滤器
+    //GL_LINEAR_MIPMAP_LINEAR 和GL_NEAREST_MIPMAP_LINEAR 过滤器在Mip层之间执行了一些额外的插值，以消除他们之间的过滤痕迹。
+    //GL_LINEAR_MIPMAP_LINEAR 三线性Mip贴图。纹理过滤的黄金准则，具有最高的精度。
+    if(minFilter == GL_LINEAR_MIPMAP_LINEAR ||
+        minFilter == GL_LINEAR_MIPMAP_NEAREST ||
+        minFilter ==GL_NEAREST_MIPMAP_LINEAR ||
+        minFilter == GL_NEAREST_MIPMAP_NEAREST){
+        //4.加载Mip,纹理生成所有的Mip层
+        //参数：GL_TEXTURE_1D、GL_TEXTURE_2D、GL_TEXTURE_3D
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    return true;
+}
 
 void SetupRC(){
-    //1.初始化
-    glClearColor(0, 0, 0, 1);
+    //1.设置清屏颜色到颜色缓冲区
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    //2.初始化着色器管理器
     shaderManager.InitializeStockShaders();
+
+    //3.开启深度测试/背面剔除
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
-    // 地板数据（物体坐标系）
-    floorBatch.Begin(GL_LINES, 324);
-    for(GLfloat x = -20.0f; x<= 20.0f;x += 0.5){
-       floorBatch.Vertex3f(x, -0.55f, 20.0f);
-       floorBatch.Vertex3f(x, -0.55f, -20.0f);
-
-       floorBatch.Vertex3f(20.0f, -0.55f, x);
-       floorBatch.Vertex3f(-20.0f, -0.55f, x);
-    }
-    floorBatch.End();
-
-    // 设置一个球体(基于gltools模型)
+    //4.设置大球
     gltMakeSphere(torusBatch, 0.4f, 40, 80);
 
-    //绘制小球
-    gltMakeSphere(sphereBatch, 0.1f, 13, 26);
-    //随机位置放置小球
+    //5.设置小球
+    gltMakeSphere(sphereBatch, 0.1f, 26, 13);
+
+    //6.设置地板顶点数据&地板纹理
+    GLfloat  texSize = 10.0f;
+    floorBatch.Begin(GL_TRIANGLE_FAN, 4, 1);
+    floorBatch.MultiTexCoord2f(0, 0.0f, 0.0f);
+    floorBatch.Vertex3f(-20.0f, -0.41f, 20.0f);
+
+    floorBatch.MultiTexCoord2f(0, texSize, 0.0f);
+    floorBatch.Vertex3f(20.0f, -0.41f, 20.0f);
+
+
+    floorBatch.MultiTexCoord2f(0, texSize, texSize);
+    floorBatch.Vertex3f(20.0f, -0.41f, -20.0f);
+
+    floorBatch.MultiTexCoord2f(0, 0.0f, texSize);
+    floorBatch.Vertex3f(-20.0f, -0.41f, -20.0f);
+    floorBatch.End();
+
+    //7.随机小球顶点坐标数据
     for(int i=0;i<NUM_SPHERES;i++){
         //y轴不变，x，z产生随机值
-        GLfloat x = ((GLfloat)((rand()%400) -200) * 0.1f);
-        GLfloat z = ((GLfloat)((rand()%400) -200) * 0.1f);
+        GLfloat  x = ((GLfloat)((rand()%400) - 200 )*0.1f);
+        GLfloat  z = ((GLfloat)((rand()%400) - 200 )*0.1f);
 
-        //在y方向 ，将球体设置为0.0的位置，这使得它们看起来是漂浮在眼镜的高度
+        //在y方向，将球体设置为0.0的位置，这使得他们看起来是漂浮在眼镜的高度
         //对spheres数组中的每一个顶点，设置顶点数据
         spheres[i].SetOrigin(x,0.0f,z);
     }
+
+    //8.命名纹理对象
+    glGenTextures(3, uiTextures);
+
+    //9.将TGA文件加载为2D纹理
+    //参数1：纹理文件名称
+    //参数2&参数3：需要缩小&放大的过滤器
+    //参数4：纹理坐标环绕模式
+    glBindTexture(GL_TEXTURE_2D, uiTextures[0]);
+    LoadTGATexture("/Users/gaomingyang/Documents/MG/MIGUWorkSpace/OpenGLWorkSpace/CodeTest/OpenGLMacEnvirement/FirstOpenGLDemo/FirstOpenGLDemo/tga/Marble.tga", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_REPEAT);
+
+    glBindTexture(GL_TEXTURE_2D, uiTextures[1]);
+    LoadTGATexture("/Users/gaomingyang/Documents/MG/MIGUWorkSpace/OpenGLWorkSpace/CodeTest/OpenGLMacEnvirement/FirstOpenGLDemo/FirstOpenGLDemo/tga/Marslike.tga", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, uiTextures[2]);
+    LoadTGATexture("/Users/gaomingyang/Documents/MG/MIGUWorkSpace/OpenGLWorkSpace/CodeTest/OpenGLMacEnvirement/FirstOpenGLDemo/FirstOpenGLDemo/tga/MoonLike.tga", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE);
 }
 
-//进行调用以绘制场景
-void RenderScene(void){
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//删除纹理
+void ShutdownRC(void){
+    glDeleteTextures(3, uiTextures);
+}
 
-    //1.颜色（地板，打球颜色，小球颜色）
-    static GLfloat vFloorColor[] = {0.0f,1.0f,0.0f,1.0f};
-    static GLfloat vTorusColor[] = {1.0f,0.0f,0.0f,1.0f};
-    static GLfloat vSpereColor[] = {0.0f,0.0f,1.0f,1.0f};
+//屏幕更改大小或已初始化
+void ChangeSize(int nWidth,int nHeight){
+    //1.设置视口
+    glViewport(0, 0, nWidth, nHeight);
 
-    //2.动画
-    static CStopWatch rotTimer;
-    float yRot = rotTimer.GetElapsedSeconds()*60.0f;
+    //2.设置投影方式
+    viewFrustum.SetPerspective(35.0f, float(nWidth)/float(nHeight), 1.0f, 100.0f);
 
-    modelViewMatrix.PushMatrix();
-    //3. 压栈
-    M3DMatrix44f mCamera;
-    cameraFrame.GetCameraMatrix(mCamera);
-    modelViewMatrix.PushMatrix(mCamera);
+    //3.将投影矩阵加载到投影矩阵堆栈
+    projectionMatrix.LoadMatrix(viewFrustum.GetProjectionMatrix());
+    modelViewMatrix.LoadIdentity();
 
-    //4.地面绘制
-    shaderManager.UseStockShader(GLT_SHADER_FLAT,transformPipline.GetModelViewProjectionMatrix(),vFloorColor);
-    floorBatch.Draw();
+    //4.将投影矩阵堆栈和模型视图矩阵对象设置到管道中
+    transformPipline.SetMatrixStacks(modelViewMatrix, projectionMatrix);
+}
 
-    //5.设置点光源位置
-    M3DVector4f vLightPos = {0,10,5,1};
+void drawSomething(GLfloat yRot){
+    //1.定义光源位置&漫反射颜色
+    static GLfloat vWhite[] = {1.0f,1.0f,1.0f,1.0f};
+    static GLfloat vLightPos[] = {0.0f,3.0f,0.0f,1.0f};
 
-    //6.使得整个打球往里面平移3.0
-    modelViewMatrix.Translate(0.0f, 0.0f, -3.0f);
-
-    //7.大球
-    modelViewMatrix.PushMatrix();
-    modelViewMatrix.Rotate(yRot, 0, 1, 0);
-    shaderManager.UseStockShader(GLT_SHADER_POINT_LIGHT_DIFF,transformPipline.GetModelViewMatrix(),transformPipline.GetProjectionMatrix(),vLightPos,vTorusColor);
-    torusBatch.Draw();
-    modelViewMatrix.PopMatrix();
-
-    //8.小球
-    for(int i=0;i<NUM_SPHERES;i++ ){
+    //2.绘制悬浮小球
+    glBindTexture(GL_TEXTURE_2D, uiTextures[2]);
+    for(int i=0;i<NUM_SPHERES;i++){
         modelViewMatrix.PushMatrix();
         modelViewMatrix.MultMatrix(spheres[i]);
-        shaderManager.UseStockShader(GLT_SHADER_POINT_LIGHT_DIFF,transformPipline.GetModelViewMatrix(),transformPipline.GetProjectionMatrix(),vLightPos,vSpereColor);
+        modelViewMatrix.Rotate(yRot * -2.0f, 0.0f, 1.0f, 0.0f);//让每个小球也能自转
+        shaderManager.UseStockShader(GLT_SHADER_TEXTURE_POINT_LIGHT_DIFF,
+                                     modelViewMatrix.GetMatrix(),
+                                     transformPipline.GetProjectionMatrix(),
+                                     vLightPos,
+                                     vWhite,
+                                     0);
         sphereBatch.Draw();
         modelViewMatrix.PopMatrix();
     }
 
-    //9.让一个小球围绕着打球公转;
-    modelViewMatrix.Rotate(yRot * -2.0f, 0, 1, 0);
-    modelViewMatrix.Translate(0.8f, 0.0f, 0.0f);
-    shaderManager.UseStockShader(GLT_SHADER_POINT_LIGHT_DIFF,transformPipline.GetModelViewMatrix(),transformPipline.GetProjectionMatrix(),vLightPos,vSpereColor);
-    sphereBatch.Draw();
+    //3.绘制大球
+    modelViewMatrix.Translate(0.0f, 0.2f, -2.5f);
+    modelViewMatrix.PushMatrix();
+    modelViewMatrix.Rotate(yRot, 0.0f, 1.0f, 0.0f);
+    glBindTexture(GL_TEXTURE_2D, uiTextures[1]);
+    shaderManager.UseStockShader(GLT_SHADER_TEXTURE_POINT_LIGHT_DIFF,
+                                modelViewMatrix.GetMatrix(),
+                                transformPipline.GetProjectionMatrix(),
+                                vLightPos,
+                                vWhite,
+                                0 );
+    torusBatch.Draw();
+    modelViewMatrix.PopMatrix();
 
+    //4.绘制公转小球
+    modelViewMatrix.PushMatrix();
+    modelViewMatrix.Rotate(yRot * -2.0f, 0.0f, 1.0f, 0.0f);
+    modelViewMatrix.Translate(0.8f, 0.0f, 0.0f);
+    glBindTexture(GL_TEXTURE_2D, uiTextures[2]);
+    shaderManager.UseStockShader(GLT_SHADER_TEXTURE_POINT_LIGHT_DIFF,
+                                 modelViewMatrix.GetMatrix(),
+                                 transformPipline.GetProjectionMatrix(),
+                                 vLightPos,
+                                 vWhite,
+                                 0);
+    sphereBatch.Draw();
     modelViewMatrix.PopMatrix();
+
+}
+
+//进行调用以绘制场景
+void RenderScene(void){
+    //1.地板颜色值
+    static  GLfloat  vFloorColor[] = {1.0f,1.0f,1.0f,0.75f};
+
+    //2.基于时间动画
+    static CStopWatch rotTimer;
+    float  yRot = rotTimer.GetElapsedSeconds()*60.0f;
+
+    //3.清除颜色缓冲区和深度缓冲区
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    //4.压入栈(栈顶)
+    modelViewMatrix.PushMatrix();
+
+    //5.设置观察者矩阵
+    M3DMatrix44f  mCamera;
+    cameraFrame.GetCameraMatrix(mCamera);
+    modelViewMatrix.MultMatrix(mCamera);
+
+    //6.压栈(镜面)
+    modelViewMatrix.PushMatrix();
+
+    //7.-----添加反光效果-----
+    //翻转Y轴
+    modelViewMatrix.Scale(1.0f, -1.0f, 1.0f);
+    //镜面世界围绕y轴平移一定间距
+    modelViewMatrix.Translate(0.0f, 0.8f, 0.0f);
+
+    //8.指定顺时针为正面
+    glFrontFace(GL_CW);
+
+    //9.绘制地面意外其他部分（镜面）
+    drawSomething(yRot);
+
+    //10.回复为逆时针为正面
+    glFrontFace(GL_CCW);
+
+    //11.绘制镜面，回复矩阵
     modelViewMatrix.PopMatrix();
+
+    //12.开启混合功能(绘制地板)
+    glEnable(GL_BLEND);
+    //13.指定glBlendFunc 颜色混合方程式
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    //14.绑定地面纹理
+    glBindTexture(GL_TEXTURE_2D, uiTextures[0]);
+
+    /*15.
+     纹理调整着色器(将一个基本色乘以一个取自纹理的单元nTextureUnit的纹理)
+     参数1：GLT_SHADER_TEXTURE_MODULATE
+     参数2：模型视图投影矩阵
+     参数3：颜色
+     参数4：纹理单元（第0层的纹理单元）
+
+     */
+    shaderManager.UseStockShader(GLT_SHADER_TEXTURE_MODULATE,
+                                 transformPipline.GetModelViewProjectionMatrix(),
+                                 vFloorColor,
+                                 0);
+    //开始绘制
+    floorBatch.Draw();
+    //取消混合
+    glDisable(GL_BLEND);
+    //16.绘制地面以外其他部分
+    drawSomething(yRot);
+
+    //17.绘制完毕，回复矩阵
+    modelViewMatrix.PopMatrix();
+    //18.交换缓冲区
     glutSwapBuffers();
+    //19.提交重新渲染
     glutPostRedisplay();
 
 }
 
-//屏幕更改大小或已初始化
-void ChangeSize(int width ,int height){
-    //1.设置视口
-    glViewport(0, 0, width, height);
-
-    //2.创建投影矩阵
-    viewFrustum.SetPerspective(35.0f, float(width)/float(height), 1.0f, 100.0f);
-    projectionMatrix.LoadMatrix(viewFrustum.GetProjectionMatrix());
-
-    //3.变换管道设置2个矩阵堆栈（管理）
-    transformPipline.SetMatrixStacks(modelViewMatrix, projectionMatrix);
-}
-
-void SpeacialKeys(int key,int x,int y){
+// 移动相机参考帧，来对方向键做出响应
+void SpecialKeys(int key,int x,int y){
     float linear = 0.1f;
-    float anguar = float(m3dDegToRad(5.0f));
+    float angular = float(m3dDegToRad(5.0f));
 
     if(key == GLUT_KEY_UP){
+        //MoveForward 平移
         cameraFrame.MoveForward(linear);
     }
     if(key == GLUT_KEY_DOWN){
         cameraFrame.MoveForward(-linear);
     }
-
     if(key == GLUT_KEY_LEFT){
-        cameraFrame.RotateWorld(anguar, 0, 1, 0);
+        //RotateWord 旋转
+        cameraFrame.RotateWorld(angular, 0.0f, 1.0f, 0.0f);
     }
     if(key == GLUT_KEY_RIGHT){
-        cameraFrame.RotateWorld(-anguar, 0, 1, 0);
+        cameraFrame.RotateWorld(-angular, 0.0f, 1.0f, 0.0f);
     }
 }
 
@@ -175,7 +341,7 @@ int main(int argc,char* argv[]){
 
     glutReshapeFunc(ChangeSize);
     glutDisplayFunc(RenderScene);
-    glutSpecialFunc(SpeacialKeys);
+    glutSpecialFunc(SpecialKeys);
 
     GLenum  err = glewInit();
     if(GLEW_OK != err){
@@ -185,8 +351,7 @@ int main(int argc,char* argv[]){
 
     SetupRC();
     glutMainLoop();
-    return 0;
+    ShutdownRC();
+    return  0;
 }
-
-
 
