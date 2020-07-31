@@ -6,8 +6,10 @@
 //  Copyright © 2020 高明阳. All rights reserved.
 //
 
+#import <GLKit/GLKit.h>
 #import "ViewController.h"
 #import "MyView.h"
+#import "CubeViewController.h"
 
 @interface ViewController ()
 @property (nonatomic, strong)MyView *myView;
@@ -22,11 +24,14 @@
 
 -(void)commonInit{
     self.title = @"OpenGLES练习";
-//    self.view.backgroundColor = [UIColor greenColor];
-//    self.myView = (MyView *)self.view;
+    UIBarButtonItem *nextBtn = [[UIBarButtonItem alloc] initWithTitle:@"next" style:UIBarButtonItemStylePlain target:self action:@selector(nextVCClick:)];
+    self.navigationItem.rightBarButtonItem = nextBtn;
     self.myView = [[MyView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.myView];
 }
 
-
+-(void)nextVCClick:(UIBarButtonItem *)btn{
+    [self.navigationController pushViewController:[CubeViewController  new
+    ] animated:YES];
+}
 @end
