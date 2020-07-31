@@ -6,10 +6,12 @@ FirstOpenGLDemo/.idea/vcs.xml
 FirstOpenGLDemo/.idea/xcode.xml
 
 OpenGLESDemo/.idea/.gitignore
-OpenGLESDemo/.idea/FirstOpenGLDemo.iml
+OpenGLESDemo/.idea/workspace.xml
+OpenGLESDemo/.idea/OpenGLESDemo.iml
 OpenGLESDemo/.idea/misc.xml
 OpenGLESDemo/.idea/modules.xml
 OpenGLESDemo/.idea/vcs.xml
+OpenGLESDemo/.idea/xcode.xml
 OpenGLESDemo/.idea/xcode.xml
 
 *.xcuserstate
