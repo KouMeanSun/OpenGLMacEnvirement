@@ -169,7 +169,14 @@
      参数2：rect坐标
      参数3：绘制的图片
      */
+    CGContextDrawImage(spriteContext, rect, spriteImage); //这种默认方式图片会倒置
+    //------以下是解决倒置的问题
+    CGContextTranslateCTM(spriteContext, rect.origin.x, rect.origin.y);
+    CGContextTranslateCTM(spriteContext, 0, rect.size.height);
+    CGContextScaleCTM(spriteContext, 1.0, -1.0);
+    CGContextTranslateCTM(spriteContext, -rect.origin.x, -rect.origin.y);
     CGContextDrawImage(spriteContext, rect, spriteImage);
+    //------end ------
     //7.画图完毕就释放上下文
     CGContextRelease(spriteContext);
     //8.绑定纹理到默认的纹理ID
