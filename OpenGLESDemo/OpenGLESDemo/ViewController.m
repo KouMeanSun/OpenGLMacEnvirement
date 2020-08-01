@@ -24,8 +24,8 @@
 
 -(void)commonInit{
     self.title = @"OpenGLES练习";
-    UIBarButtonItem *nextBtn = [[UIBarButtonItem alloc] initWithTitle:@"next" style:UIBarButtonItemStylePlain target:self action:@selector(nextVCClick:)];
-    self.navigationItem.rightBarButtonItem = nextBtn;
+//    UIBarButtonItem *nextBtn = [[UIBarButtonItem alloc] initWithTitle:@"next" style:UIBarButtonItemStylePlain target:self action:@selector(nextVCClick:)];
+//    self.navigationItem.rightBarButtonItem = nextBtn;
     self.myView = [[MyView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.myView];
 }
