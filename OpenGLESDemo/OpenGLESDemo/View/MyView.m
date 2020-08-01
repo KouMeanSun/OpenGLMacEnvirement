@@ -403,9 +403,9 @@
     //4)初始化为单元矩阵
     ksMatrixLoadIdentity(&_rotationMatrix);
     //5)旋转
-    ksRotate(&_rotationMatrix, xDegree, 1.0f, 0.0f, 0.0f);//x轴旋转
-    ksRotate(&_rotationMatrix, yDegree, 0.0f, 1.0f, 0.0f);//y轴旋转
-    ksRotate(&_rotationMatrix, zDegree, 0.0f, 0.0f, 1.0f);//z轴旋转
+    ksRotate(&_rotationMatrix, xDegree, 1.0f, 0.0f, 0.0f);//绕x轴旋转
+    ksRotate(&_rotationMatrix, yDegree, 0.0f, 1.0f, 0.0f);//绕y轴旋转
+    ksRotate(&_rotationMatrix, zDegree, 0.0f, 0.0f, 1.0f);//绕z轴旋转
     //6)把变换矩阵相乘,将_modelViewMatrix矩阵与_rotationMatrix矩阵相乘，结合到模型视图
     ksMatrixMultiply(&_modelViewMatrix, &_rotationMatrix, &_modelViewMatrix);
     //7)将模型视图矩阵传递到顶点着色器

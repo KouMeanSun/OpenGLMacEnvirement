@@ -9,7 +9,7 @@
 #import <GLKit/GLKit.h>
 #import "ViewController.h"
 #import "MyView.h"
-#import "CubeViewController.h"
+#import "TriangleViewController.h"
 
 @interface ViewController ()
 @property (nonatomic, strong)MyView *myView;
@@ -24,14 +24,14 @@
 
 -(void)commonInit{
     self.title = @"OpenGLES练习";
-//    UIBarButtonItem *nextBtn = [[UIBarButtonItem alloc] initWithTitle:@"next" style:UIBarButtonItemStylePlain target:self action:@selector(nextVCClick:)];
-//    self.navigationItem.rightBarButtonItem = nextBtn;
+    UIBarButtonItem *nextBtn = [[UIBarButtonItem alloc] initWithTitle:@"next" style:UIBarButtonItemStylePlain target:self action:@selector(nextVCClick:)];
+    self.navigationItem.rightBarButtonItem = nextBtn;
     self.myView = [[MyView alloc] initWithFrame:self.view.bounds];
     [self.view addSubview:self.myView];
 }
 
 -(void)nextVCClick:(UIBarButtonItem *)btn{
-    [self.navigationController pushViewController:[CubeViewController  new
+    [self.navigationController pushViewController:[TriangleViewController  new
     ] animated:YES];
 }
 @end
