@@ -296,12 +296,12 @@
     //(1)顶点数组 前3顶点值（x,y,z），后3位颜色值(RGB)
     GLfloat attrArr[] =
             {
-                    -0.5f, 0.5f, 0.0f,      1.0f, 0.0f, 1.0f, //左上0
-                    0.5f, 0.5f, 0.0f,       1.0f, 0.0f, 1.0f, //右上1
-                    -0.5f, -0.5f, 0.0f,     1.0f, 1.0f, 1.0f, //左下2
+                -0.5f, 0.5f, 0.0f,      1.0f, 0.0f, 1.0f,       0.0f,1.0f,//左上0
+                0.5f, 0.5f, 0.0f,       1.0f, 0.0f, 1.0f,       1.0f,1.0f,//右上1
+                -0.5f, -0.5f, 0.0f,     1.0f, 1.0f, 1.0f,       0.0f,0.0f,//左下2
 
-                    0.5f, -0.5f, 0.0f,      1.0f, 1.0f, 1.0f, //右下3
-                    0.0f, 0.0f, 1.0f,       0.0f, 1.0f, 0.0f, //顶点4
+                0.5f, -0.5f, 0.0f,      1.0f, 1.0f, 1.0f,       1.0f,0.0f,//右下3
+                0.0f, 0.0f, 1.0f,       0.0f, 1.0f, 0.0f,       0.5f,0.5f,//顶点4
             };
 
     //(2).索引数组
@@ -339,7 +339,7 @@
     //参数4：normalized,固定点数据值是否应该归一化，或者直接转换为固定值。（GL_FALSE）
     //参数5：stride,连续顶点属性之间的偏移量，默认为0；
     //参数6：指定一个指针，指向数组中的第一个顶点属性的第一个组件。默认为0
-    glVertexAttribPointer(position, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, NULL);
+    glVertexAttribPointer(position, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*8, NULL);
 
     //10.----------处理顶点颜色值------------
     //1).glGetAttribLocation,用来获取vertex attribute的入口的.
@@ -356,8 +356,17 @@
     //参数4：normalized,固定点数据值是否应该归一化，或者直接转换为固定值。（GL_FALSE）
     //参数5：stride,连续顶点属性之间的偏移量，默认为0；
     //参数6：指定一个指针，指向数组中的第一个顶点属性的第一个组件。默认为0
-    glVertexAttribPointer(positionColor, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, (float *)NULL + 3);
+    glVertexAttribPointer(positionColor, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*8, (float *)NULL + 3);
 
+    
+    //-----处理纹理数据
+    GLuint textCoor = glGetAttribLocation(self.myPrograme, "textCoordinate");
+    glEnableVertexAttribArray(textCoor);
+    glVertexAttribPointer(textCoor, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat )*8, (float *)NULL + 6);
+    [self setupTexture:@"kunkun.jpg"];
+    glUniform1i(glGetUniformLocation(self.myPrograme, "colorMap"), 0);
+    
+    
     //11.找到myProgram中的projectionMatrix,modelViewMatrix 2个矩阵的地址。如果找到则返回地址，否则返回-1，表示没有找到2个对象.
     GLuint projectioMatrixSlot = glGetUniformLocation(self.myPrograme, "projectionMatrix");
     GLuint modelViewMatrixSlot = glGetUniformLocation(self.myPrograme, "modelViewMatrix");

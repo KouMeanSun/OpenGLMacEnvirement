@@ -104,12 +104,12 @@
         
         GLfloat attrArr[] =
         {
-            -0.5f, 0.5f, 0.0f,      1.0f, 0.0f, 1.0f, //左上
-            0.5f, 0.5f, 0.0f,       1.0f, 0.0f, 1.0f, //右上
-            -0.5f, -0.5f, 0.0f,     1.0f, 1.0f, 1.0f, //左下
+            -0.5f, 0.5f, 0.0f,      1.0f, 0.0f, 1.0f,       0.0f,1.0f,//左上
+            0.5f, 0.5f, 0.0f,       1.0f, 0.0f, 1.0f,       1.0f,1.0f,//右上
+            -0.5f, -0.5f, 0.0f,     1.0f, 1.0f, 1.0f,       0.0f,0.0f,//左下
             
-            0.5f, -0.5f, 0.0f,      1.0f, 1.0f, 1.0f, //右下
-            0.0f, 0.0f, 1.0f,       0.0f, 1.0f, 0.0f, //顶点
+            0.5f, -0.5f, 0.0f,      1.0f, 1.0f, 1.0f,       1.0f,0.0f,//右下
+            0.0f, 0.0f, 1.0f,       0.0f, 1.0f, 0.0f,       0.5f,0.5f,//顶点
         };
         
         //2.绘图索引
@@ -139,15 +139,28 @@
     
     //使用顶点数据
     glEnableVertexAttribArray(GLKVertexAttribPosition);
-    glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, NULL);
+    glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*8, NULL);
     
     //使用颜色数据
     glEnableVertexAttribArray(GLKVertexAttribColor);
-    glVertexAttribPointer(GLKVertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*6, (GLfloat *)NULL + 3);
+    glVertexAttribPointer(GLKVertexAttribColor, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*8, (GLfloat *)NULL + 3);
+    
+    //使用纹理数据
+    glEnableVertexAttribArray(GLKVertexAttribTexCoord0);
+    glVertexAttribPointer(GLKVertexAttribTexCoord0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat)*8, (GLfloat *)NULL + 6);
+    
+    //1.获取纹理图片路径
+    NSString *filepath = [[NSBundle mainBundle] pathForResource:@"kunkun" ofType:@"jpg"];
+    
+    //2.设置纹理从参数
+    NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:@(0), GLKTextureLoaderOriginBottomLeft, nil];
+    GLKTextureInfo *textureInfo = [GLKTextureLoader textureWithContentsOfFile:filepath options:options error:nil];
     
     //着色器
     self.mEffect = [[GLKBaseEffect alloc] init];
     
+    self.mEffect.texture2d0.enabled = GL_TRUE;
+    self.mEffect.texture2d0.name  = textureInfo.name;
     //投影视图
     CGSize size = self.view.bounds.size;
     float aspect = fabs(size.width/size.height);
