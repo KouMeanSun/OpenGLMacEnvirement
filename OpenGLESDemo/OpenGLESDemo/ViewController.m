@@ -85,8 +85,7 @@ typedef struct {
     filerBar.delegate = self;
     [self.view addSubview:filerBar];
     
-    NSArray *dataSource = @[@"无",@"分屏_2",@"分屏_3",@"分屏_4",@"分屏_6",@"分屏_9"];
-    filerBar.itemList = dataSource;
+    NSArray *dataSource = @[@"无",@"灰度",@"颠倒",@"马赛克",@"马赛克2",@"马赛克3"];    filerBar.itemList = dataSource;
 }
 
 -(void)filterInit{
@@ -314,18 +313,19 @@ typedef struct {
     if (index == 0) {
         [self setupNormalShaderProgram];
     }else if(index == 1){
-        [self setupSplitScreen_2ShaderProgram];
+        [self setupGrayShaderProgram];
     }else if(index == 2)
     {
-        [self setupSplitScreen_3ShaderProgram];
-    }else if(index == 3)
+        [self setupReversalShaderProgram];
+    }else if (index == 3)
     {
-        [self setupSplitScreen_4ShaderProgram];
-    }else if(index == 4)
+        [self setupMosaicShaderProgram];
+    }else if (index == 4)
     {
-        [self setupSplitScreen_6ShaderProgram];
-    }else if(index == 5){
-        [self setupSplitScreen_9ShaderProgram];
+        [self setupHexagonMosaicShaderProgram];
+    }else if (index == 5)
+    {
+        [self setupTriangularMosaicShaderProgram];
     }
    
     // 重新开始滤镜动画
@@ -340,25 +340,34 @@ typedef struct {
     //设置着色器程序
     [self setupShaderProgramWithName:@"Normal"];
 }
-//分屏(2屏)
--(void)setupSplitScreen_2ShaderProgram{
-    [self setupShaderProgramWithName:@"SplitScreen_2"];
+// 灰度滤镜着色器程序
+- (void)setupGrayShaderProgram {
+    //设置着色器程序
+    [self setupShaderProgramWithName:@"Gray"];
 }
-// 分屏(3屏)
-- (void)setupSplitScreen_3ShaderProgram {
-    [self setupShaderProgramWithName:@"SplitScreen_3"];
+
+// 颠倒滤镜着色器程序
+- (void)setupReversalShaderProgram {
+    //设置着色器程序
+    [self setupShaderProgramWithName:@"Reversal"];
 }
-// 分屏(4屏)
-- (void)setupSplitScreen_4ShaderProgram {
-    [self setupShaderProgramWithName:@"SplitScreen_4"];
+
+
+
+// 马赛克滤镜着色器程序
+- (void)setupMosaicShaderProgram {
+    [self setupShaderProgramWithName:@"Mosaic"];
+    
 }
-// 分屏(6屏)
-- (void)setupSplitScreen_6ShaderProgram {
-    [self setupShaderProgramWithName:@"SplitScreen_6"];
+
+// 六边形马赛克滤镜着色器程序
+- (void)setupHexagonMosaicShaderProgram {
+    [self setupShaderProgramWithName:@"HexagonMosaic"];
 }
-// 分屏(9屏)
-- (void)setupSplitScreen_9ShaderProgram {
-    [self setupShaderProgramWithName:@"SplitScreen_9"];
+
+// 三角形马赛克滤镜着色器程序
+- (void)setupTriangularMosaicShaderProgram {
+    [self setupShaderProgramWithName:@"TriangularMosaic"];
 }
 //初始化着色器程序
 -(void)setupShaderProgramWithName:(NSString *)name{
