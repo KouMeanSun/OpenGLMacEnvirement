@@ -85,7 +85,7 @@ typedef struct {
     filerBar.delegate = self;
     [self.view addSubview:filerBar];
     
-    NSArray *dataSource = @[@"无",@"灰度",@"颠倒",@"马赛克",@"马赛克2",@"马赛克3"];    filerBar.itemList = dataSource;
+    NSArray *dataSource = @[@"无",@"缩放",@"灵魂出窍",@"抖动",@"闪白",@"毛刺",@"幻觉"];    filerBar.itemList = dataSource;
 }
 
 -(void)filterInit{
@@ -312,20 +312,24 @@ typedef struct {
     //1. 选择默认shader
     if (index == 0) {
         [self setupNormalShaderProgram];
-    }else if(index == 1){
-        [self setupGrayShaderProgram];
+    }else if(index == 1)
+    {
+        [self setupScaleShaderProgram];
     }else if(index == 2)
     {
-        [self setupReversalShaderProgram];
-    }else if (index == 3)
+        [self setupSoulOutShaderProgram];
+    }else if(index == 3)
     {
-        [self setupMosaicShaderProgram];
-    }else if (index == 4)
+        [self setupShakeShaderProgram];
+    }else if(index == 4)
     {
-        [self setupHexagonMosaicShaderProgram];
-    }else if (index == 5)
+        [self setupShineWhiteShaderProgram];
+    }else if(index == 5)
     {
-        [self setupTriangularMosaicShaderProgram];
+        [self setupGitchShaderProgram];
+    }else
+    {
+        [self setupVertigoShaderProgram];
     }
    
     // 重新开始滤镜动画
@@ -340,34 +344,37 @@ typedef struct {
     //设置着色器程序
     [self setupShaderProgramWithName:@"Normal"];
 }
-// 灰度滤镜着色器程序
-- (void)setupGrayShaderProgram {
-    //设置着色器程序
-    [self setupShaderProgramWithName:@"Gray"];
+
+// 缩放滤镜着色器程序
+- (void)setupScaleShaderProgram {
+    [self setupShaderProgramWithName:@"Scale"];
 }
 
-// 颠倒滤镜着色器程序
-- (void)setupReversalShaderProgram {
-    //设置着色器程序
-    [self setupShaderProgramWithName:@"Reversal"];
-}
-
-
-
-// 马赛克滤镜着色器程序
-- (void)setupMosaicShaderProgram {
-    [self setupShaderProgramWithName:@"Mosaic"];
+// 灵魂出窍滤镜着色器程序
+- (void)setupSoulOutShaderProgram {
+    [self setupShaderProgramWithName:@"SoulOut"];
     
 }
 
-// 六边形马赛克滤镜着色器程序
-- (void)setupHexagonMosaicShaderProgram {
-    [self setupShaderProgramWithName:@"HexagonMosaic"];
+// 抖动滤镜着色器程序
+-(void)setupShakeShaderProgram {
+    [self setupShaderProgramWithName:@"Shake"];
+
 }
 
-// 三角形马赛克滤镜着色器程序
-- (void)setupTriangularMosaicShaderProgram {
-    [self setupShaderProgramWithName:@"TriangularMosaic"];
+// 闪白滤镜着色器程序
+- (void)setupShineWhiteShaderProgram {
+    [self setupShaderProgramWithName:@"ShineWhite"];
+}
+
+// 毛刺滤镜着色器程序
+- (void)setupGitchShaderProgram {
+    [self setupShaderProgramWithName:@"Glitch"];
+}
+
+// 幻影滤镜着色器程序
+- (void)setupVertigoShaderProgram {
+    [self setupShaderProgramWithName:@"Vertigo"];
 }
 //初始化着色器程序
 -(void)setupShaderProgramWithName:(NSString *)name{
