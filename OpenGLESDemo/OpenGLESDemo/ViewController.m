@@ -8,55 +8,44 @@
 
 #import <GLKit/GLKit.h>
 #import "ViewController.h"
-#import "FilterBar.h"
+#import <Photos/Photos.h>
 
-typedef struct {
-    GLKVector3 positionCoord; // (x,y,z)
-    GLKVector2 textureCoord; //(U,V)
-}SenceVertex;
-@interface ViewController ()<FilterBarDelegate>
-@property (nonatomic,assign)SenceVertex *vertices;
-@property (nonatomic,strong)EAGLContext *context;
-//用于刷新屏幕
-@property (nonatomic,strong)CADisplayLink *displayLink;
-//开始时间戳
-@property (nonatomic,assign)NSTimeInterval startTimeInterval;
-//着色器程序
-@property (nonatomic,assign) GLuint program;
-//顶点缓存
-@property (nonatomic,assign)GLuint vertexBuffer;
-//纹理 ID
-@property (nonatomic,assign)GLuint textureID;
+#import "LongLegView.h"
+
+#define SCREEN_WIDTH [UIScreen mainScreen].bounds.size.width
+#define SCREEN_HEIGHT [UIScreen mainScreen].bounds.size.height
+
+@interface ViewController ()<LongLegViewViewDelegate>
+
+@property (nonatomic,strong) LongLegView *springView;
+
+@property (nonatomic,strong)UIButton *saveBottom;
+@property (nonatomic,strong)UISlider *saveSlider;
+
+//top按钮
+@property ( nonatomic,strong)  UIButton *topButton;
+//bottom按钮
+@property ( nonatomic,strong)  UIButton *bottomButton;
+
+//topline
+@property (nonatomic,strong)  UIView *topLine;
+//bottomline
+@property (nonatomic,strong)  UIView *bottomLine;
+
+//遮罩层
+@property (nonatomic,strong)  UIView *mask;
+
+// 上方横线距离纹理顶部的高度
+@property (nonatomic, assign) CGFloat currentTop;
+// 下方横线距离纹理顶部的高度
+@property (nonatomic, assign) CGFloat currentBottom;
+
+@property (nonatomic,assign) CGFloat topLineSpace;
+@property (nonatomic,assign) CGFloat bottomLineSpace;
 @end
 
 @implementation ViewController
 
-//释放
--(void)dealloc{
-    //1.上下文释放
-    if([EAGLContext currentContext] == self.context){
-        [EAGLContext setCurrentContext:nil];
-    }
-    //2.顶点缓存区释放
-    if(_vertexBuffer){
-        glDeleteBuffers(1,&_vertexBuffer);
-        _vertexBuffer = 0;
-    }
-    //3.顶点数组释放
-    if(_vertices){
-        free(_vertices);
-        _vertices = nil;
-    }
-}
-
--(void)viewWillDisappear:(BOOL)animated{
-    [super viewWillDisappear:animated];
-    //移除 displayLink
-    if(self.displayLink){
-        [self.displayLink invalidate];
-        self.displayLink = nil;
-    }
-}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -68,420 +57,253 @@ typedef struct {
 -(void)commonInit{
     self.title = @"OpenGLES练习";
    //设置背景色
-    self.view.backgroundColor = [UIColor blackColor];
-    //创建滤镜工具栏
-    [self setupFilterBar];
-    //滤镜处理初始化
-    [self filterInit];
-    //开始滤镜动画
-    [self startFilerAnimation];
-}
-//创建滤镜栏
--(void)setupFilterBar{
-   CGFloat filterBarWidth = [UIScreen mainScreen].bounds.size.width;
-    CGFloat filterBarHeight = 100;
-    CGFloat filterBarY = [UIScreen mainScreen].bounds.size.height - filterBarHeight;
-    FilterBar *filerBar = [[FilterBar alloc] initWithFrame:CGRectMake(0, filterBarY, filterBarWidth, filterBarHeight)];
-    filerBar.delegate = self;
-    [self.view addSubview:filerBar];
-    
-    NSArray *dataSource = @[@"无",@"缩放",@"灵魂出窍",@"抖动",@"闪白",@"毛刺",@"幻觉"];    filerBar.itemList = dataSource;
-}
-
--(void)filterInit{
-    //1.初始化上下文并设置为当前上下文
-    self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
-    [EAGLContext setCurrentContext:self.context];
-    
-    //2.开辟顶点数组内存空间
-    self.vertices = malloc(sizeof(SenceVertex)*4);
-    //3.初始化顶点(0,1,2,3)的顶点坐标以及纹理坐标
-    self.vertices[0] = (SenceVertex){{-1,1,0},{0,1}};
-    self.vertices[1] = (SenceVertex){{-1,-1,0},{0,0}};
-    self.vertices[2] = (SenceVertex){{1,1,0},{1,1}};
-    self.vertices[3] = (SenceVertex){{1,-1,0},{1,0}};
-    
-    //4.创建图层(CAEAGLLayer)
-    CAEAGLLayer *layer = [[CAEAGLLayer alloc] init];
-    //设置图层frame
-    layer.frame = CGRectMake(0, 100, self.view.frame.size.width, self.view.frame.size.width);
-    //设置图层的scale
-    layer.contentsScale = [[UIScreen mainScreen] scale];
-    //添加layer 到 view.layer
-    [self.view.layer addSublayer:layer];
-    
-    //5.绑定渲染缓存区
-    [self bindRenderLayer:layer];
-    
-    //6.获取处理的图片路径
-    NSString *imagePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"kunkun.jpg"];
-    //读取图片
-    UIImage *image = [UIImage imageWithContentsOfFile:imagePath];
-    //将JPG图片转换成纹理图片
-    GLuint textureID = [self createTextureWithImage:image];
-    //设置纹理ID
-    self.textureID = textureID;
-    
-    //7.设置视口
-    glViewport(0, 0, self.drawableWidth, self.drawableHeight);
-    
-    //8.设置顶点缓存区
-    GLuint vertexBuffer;
-    glGenBuffers(1, &vertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    GLsizeiptr bufferSizeBytes = sizeof(SenceVertex)*4;
-    glBufferData(GL_ARRAY_BUFFER, bufferSizeBytes, self.vertices, GL_STATIC_DRAW);
-    
-    
-    //9.设置默认着色器
-    [self setupNormalShaderProgram];
-    
-    //10.将顶点缓存保存，退出是菜释放
-    self.vertexBuffer = vertexBuffer;
-}
-
-
-//绑定渲染缓存区和帧缓存区
--(void)bindRenderLayer:(CALayer<EAGLDrawable > *)layer{
-    //1。渲染缓存区，帧缓存区对象
-    GLuint renderBuffer;
-    GLuint frameBuffer;
-    //2.获取帧渲染缓存区名称，绑定渲染缓存区以及将渲染缓存区与layer建立连接
-    glGenRenderbuffers(1, &renderBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
-    [self.context renderbufferStorage:GL_RENDERBUFFER fromDrawable:layer];
-    
-    //3.获取帧缓存区名称，绑定帧缓存区以及将渲染缓存区附着到帧缓存区上
-    glGenFramebuffers(1, &frameBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,
-                              GL_COLOR_ATTACHMENT0,
-                              GL_RENDERBUFFER,
-                              renderBuffer);
-
-
-}
-
-//从图片中加载纹理
--(GLuint)createTextureWithImage:(UIImage *)image{
-    //1.将 UIImage 转换为 CGImageRef
-    CGImageRef cgImageRef = [image CGImage];
-    //判断图片是否获取成功
-    if(!cgImageRef){
-        NSLog(@"Failed to load image");
-        exit(1);
-    }
-    //2、读取图片的大小，宽和高
-    GLuint width = (GLuint)CGImageGetWidth(cgImageRef);
-    GLuint height = (GLuint)CGImageGetHeight(cgImageRef);
-    //获取图片的rect
-    CGRect rect = CGRectMake(0, 0, width, height);
-    
-    //获取图片的颜色空间
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    //3.获取图片字节数 宽*高*4（RGBA）
-    void *imageData = malloc(width*height*4);
-    //4.创建上下文
-    /*
-    参数1：data,指向要渲染的绘制图像的内存地址
-    参数2：width,bitmap的宽度，单位为像素
-    参数3：height,bitmap的高度，单位为像素
-    参数4：bitPerComponent,内存中像素的每个组件的位数，比如32位RGBA，就设置为8
-    参数5：bytesPerRow,bitmap的没一行的内存所占的比特数
-    参数6：colorSpace,bitmap上使用的颜色空间  kCGImageAlphaPremultipliedLast：RGBA
-    */
-    CGContextRef context = CGBitmapContextCreate(imageData, width, height, 8, width*4, colorSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-    //将图片翻转过来(图片默认是倒置的)
-    CGContextTranslateCTM(context, 0, height);
-    CGContextScaleCTM(context, 1.0f, -1.0f);
-    CGColorSpaceRelease(colorSpace);
-    CGContextClearRect(context, rect);
-    
-    //对图片进行重新绘制，得到一张新的解压缩后的位图
-    CGContextDrawImage(context, rect, cgImageRef);
-    
-    //设置图片纹理属性
-    //5.获取纹理ID
-    GLuint textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    
-    //6.载入纹理2D数据
-    /*
-    参数1：纹理模式，GL_TEXTURE_1D、GL_TEXTURE_2D、GL_TEXTURE_3D
-    参数2：加载的层次，一般设置为0
-    参数3：纹理的颜色值GL_RGBA
-    参数4：宽
-    参数5：高
-    参数6：border，边界宽度
-    参数7：format
-    参数8：type
-    参数9：纹理数据
-    */
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
-    //7.设置纹理属性
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    //8.绑定纹理
-    /*
-    参数1：纹理维度
-    参数2：纹理ID,因为只有一个纹理，给0就可以了。
-    */
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    //9.释放context，imageData
-    CGContextRelease(context);
-    free(imageData);
-    
-    //10./返回纹理ID
-    return textureID;
-}
-
-
-
-
-
-
-
-// 开始一个滤镜动画
-- (void)startFilerAnimation {
-    //1.判断displayLink 是否为空
-    //CADisplayLink 定时器
-    if (self.displayLink) {
-        [self.displayLink invalidate];
-        self.displayLink = nil;
-    }
-    //2. 设置displayLink 的方法
-    self.startTimeInterval = 0;
-    self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(timeAction)];
-    
-    //3.将displayLink 添加到runloop 运行循环
-    [self.displayLink addToRunLoop:[NSRunLoop mainRunLoop]
-                           forMode:NSRunLoopCommonModes];
-}
-
-//2. 动画
-- (void)timeAction {
-    //DisplayLink 的当前时间撮
-    if (self.startTimeInterval == 0) {
-        self.startTimeInterval = self.displayLink.timestamp;
-    }
-    //使用program
-    glUseProgram(self.program);
-    //绑定buffer
-    glBindBuffer(GL_ARRAY_BUFFER, self.vertexBuffer);
-    
-    // 传入时间
-    CGFloat currentTime = self.displayLink.timestamp - self.startTimeInterval;
-    GLuint time = glGetUniformLocation(self.program, "Time");
-    glUniform1f(time, currentTime);
-    
-    // 清除画布
-    glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(1, 1, 1, 1);
-    
-    // 重绘
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    //渲染到屏幕上
-    [self.context presentRenderbuffer:GL_RENDERBUFFER];
-}
-
--(void)render{
-    
-    // 清除画布
-    glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(1, 1, 1, 1);
-    
-    //使用program
-    glUseProgram(self.program);
-    //绑定buffer
-    glBindBuffer(GL_ARRAY_BUFFER, self.vertexBuffer);
-    
-    // 重绘
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    //渲染到屏幕上
-    [self.context presentRenderbuffer:GL_RENDERBUFFER];
+    self.view.backgroundColor = [UIColor whiteColor];
+    [self initViews];
     
 }
-#pragma mark - FilterBarDelegate
 
-- (void)filterBar:(FilterBar *)filterBar didScrollToIndex:(NSUInteger)index {
-    //1. 选择默认shader
-    if (index == 0) {
-        [self setupNormalShaderProgram];
-    }else if(index == 1)
-    {
-        [self setupScaleShaderProgram];
-    }else if(index == 2)
-    {
-        [self setupSoulOutShaderProgram];
-    }else if(index == 3)
-    {
-        [self setupShakeShaderProgram];
-    }else if(index == 4)
-    {
-        [self setupShineWhiteShaderProgram];
-    }else if(index == 5)
-    {
-        [self setupGitchShaderProgram];
-    }else
-    {
-        [self setupVertigoShaderProgram];
-    }
+-(void)initViews{
+    self.saveBottom = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.saveBottom.backgroundColor = [UIColor systemPinkColor];
+    [self.saveBottom setTitle:@"save" forState:UIControlStateNormal];
+    self.saveBottom.frame = CGRectMake(10, SCREEN_HEIGHT - 60, 50, 50);
+    [self.saveBottom addTarget:self action:@selector(saveAction:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.saveBottom];
+    
+    self.saveSlider = [[UISlider alloc] init];
+    self.saveSlider.backgroundColor = [UIColor systemPinkColor];
+    self.saveSlider.frame = CGRectMake(70, SCREEN_HEIGHT - 60, SCREEN_WIDTH-80, 50);
+    [self.view addSubview:self.saveSlider];
+    
+    [self.saveSlider addTarget:self action:@selector(sliderValueDidChanged:) forControlEvents:UIControlEventValueChanged];
+    [self.saveSlider addTarget:self action:@selector(sliderDidTouchUp:) forControlEvents:UIControlEventTouchUpOutside];
+    [self.saveSlider addTarget:self action:@selector(sliderDidTouchUp:) forControlEvents:UIControlEventTouchUpInside];
+    
+    [self.saveSlider addTarget:self action:@selector(sliderDidTouchDown:) forControlEvents:UIControlEventTouchDown];
+    
+    
+    self.topButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        self.topButton.backgroundColor = [UIColor systemPinkColor];
+        [self.topButton setTitle:@"top" forState:UIControlStateNormal];
+        self.topButton.frame = CGRectMake(SCREEN_WIDTH-70, 70, 50, 50);
+        
+    //    [self.topButton addTarget:self action:@selector(topButtonClick:) forControlEvents:UIControlEventTouchUpInside];
+        UIPanGestureRecognizer *topPan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(actionPanTop:)];
+        [self.topButton addGestureRecognizer:topPan];
+        
+        self.bottomButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        self.bottomButton.backgroundColor = [UIColor systemPinkColor];
+        [self.bottomButton setTitle:@"bottom" forState:UIControlStateNormal];
+        self.bottomButton.frame = CGRectMake(SCREEN_WIDTH-70, 130, 50, 50);
+       
+    //    [self.bottomButton addTarget:self action:@selector(buttonBtnClick:) forControlEvents:UIControlEventTouchUpInside];
+        UIPanGestureRecognizer *bottomPan = [[UIPanGestureRecognizer alloc]
+        initWithTarget:self
+        action:@selector(actionPanBottom:)];
+        [self.bottomButton addGestureRecognizer:bottomPan];
+        
+        self.topLine = [[UIView alloc] initWithFrame:CGRectMake(10, 93, SCREEN_WIDTH-80, 1)];
+        self.topLine.backgroundColor = [UIColor greenColor];
+       
+        
+        self.bottomLine = [[UIView alloc] initWithFrame:CGRectMake(10, 153, SCREEN_WIDTH-80, 1)];
+        self.bottomLine.backgroundColor = [UIColor greenColor];
+       
+        
+        self.mask = [[UIView alloc] initWithFrame:CGRectMake(10, 94, SCREEN_WIDTH-80, 153-94)];
+        self.mask.backgroundColor = [UIColor colorWithRed:1.0f green:0.0f blue:0.0f alpha:0.2f];
+       
+    
+    self.springView = [[LongLegView alloc] initWithFrame:CGRectMake(0, 93, SCREEN_WIDTH, SCREEN_HEIGHT - 60-93)];
+    [self.view addSubview:self.springView];
+    //2. 设置SpringView 代理方法;
+    self.springView.springDelegate = self;
+    //3. 设计SpringView 上加载的图片(可修改~)
+    [self.springView updateImage:[UIImage imageNamed:@"ym3.jpg"]];
+    //4. 设置初始化的拉伸区域
+    [self setupStretchArea];
+    
+    
+    [self.view addSubview:self.topLine];
+    [self.view addSubview:self.bottomLine];
+    [self.view addSubview:self.mask];
+    [self.view addSubview:self.topButton];
+    [self.view addSubview:self.bottomButton];
+}
+// 设置初始的拉伸区域位置
+- (void)setupStretchArea {
    
-    // 重新开始滤镜动画
-     [self startFilerAnimation];
-    
-//    //渲染
-//    [self render];
-}
+    //currentTop/currentBottom 是比例值; 初始化比例是25%~75%
+    self.currentTop = 0.25f;
+    self.currentBottom = 0.75f;
+  
+    // 初始纹理占 View 的比例
+    CGFloat textureOriginHeight = 0.7f;
 
-//默认着色器程序
--(void)setupNormalShaderProgram{
-    //设置着色器程序
-    [self setupShaderProgramWithName:@"Normal"];
+    self.topLineSpace = self.currentTop * self.springView.bounds.size.height;
+    NSLog(@"topLineSpace %f",self.topLineSpace);
+    CGFloat marginImgTop = self.topLineSpace + self.springView.frame.origin.y;
+    
+    CGRect toplineFrame = self.topLine.frame;
+    self.topLine.frame = CGRectMake(toplineFrame.origin.x, marginImgTop, toplineFrame.size.width, toplineFrame.size.height);
+    
+    self.bottomLineSpace = ((self.currentBottom * textureOriginHeight) + (1 - textureOriginHeight) / 2) * self.springView.bounds.size.height;
+    NSLog(@"bottomLineSpace %f",self.bottomLineSpace);
+    CGFloat marginImgBottom = self.bottomLineSpace + self.springView.frame.origin.y;
+    
+    CGRect bottomLineFrame = self.bottomLine.frame;
+    self.bottomLine.frame = CGRectMake(bottomLineFrame.origin.x, marginImgBottom, bottomLineFrame.size.width, bottomLineFrame.size.height);
+    
+    CGRect topButtomFrame =  self.topButton.frame;
+    self.topButton.frame = CGRectMake(topButtomFrame.origin.x, marginImgTop-24, topButtomFrame.size.width, topButtomFrame.size.height);
+    
+    CGRect bottomBtnFrame = self.bottomButton.frame;
+    self.bottomButton.frame = CGRectMake(bottomBtnFrame.origin.x, marginImgBottom-24, bottomBtnFrame.size.width, bottomBtnFrame.size.height);
+    
+    CGRect maskFrame = self.mask.frame;
+    self.mask.frame = CGRectMake(maskFrame.origin.x, marginImgTop, maskFrame.size.width, marginImgBottom - marginImgTop);
 }
-
-// 缩放滤镜着色器程序
-- (void)setupScaleShaderProgram {
-    [self setupShaderProgramWithName:@"Scale"];
+- (CGFloat)stretchAreaYWithLineSpace:(CGFloat)lineSpace {
+    
+    return (lineSpace / self.springView.bounds.size.height - self.springView.textureTopY) / self.springView.textureHeight;
 }
-
-// 灵魂出窍滤镜着色器程序
-- (void)setupSoulOutShaderProgram {
-    [self setupShaderProgramWithName:@"SoulOut"];
-    
+-(void)buttonBtnClick:(UIButton *)btn{
+    NSLog(@"点击了 bottomClick");
 }
-
-// 抖动滤镜着色器程序
--(void)setupShakeShaderProgram {
-    [self setupShaderProgramWithName:@"Shake"];
-
+-(void)topButtonClick:(UIButton *)btn{
+    NSLog(@"点击了 topClick");
 }
-
-// 闪白滤镜着色器程序
-- (void)setupShineWhiteShaderProgram {
-    [self setupShaderProgramWithName:@"ShineWhite"];
-}
-
-// 毛刺滤镜着色器程序
-- (void)setupGitchShaderProgram {
-    [self setupShaderProgramWithName:@"Glitch"];
-}
-
-// 幻影滤镜着色器程序
-- (void)setupVertigoShaderProgram {
-    [self setupShaderProgramWithName:@"Vertigo"];
-}
-//初始化着色器程序
--(void)setupShaderProgramWithName:(NSString *)name{
-    //1.获取着色器program
-    GLuint program = [self programWithShaderName:name];
-    //2.use program
-    glUseProgram(program);
-    
-    //3.获取Position，Texture，TextureCoords 的索引位置
-    GLuint positionSlot = glGetAttribLocation(program, "Position");
-    GLuint textureSlot = glGetUniformLocation(program, "Texture");
-    GLuint textureCoordsSlot = glGetAttribLocation(program, "TextureCoords");
-    
-    //4.激活纹理,绑定纹理ID
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, self.textureID);
-    
-    //5.纹理sample
-    glUniform1i(textureSlot, 0);
-    
-    //6.打开positionSlot 属性并且传递到数据positionSloat中(顶点坐标)
-    glEnableVertexAttribArray(positionSlot);
-    glVertexAttribPointer(positionSlot, 3, GL_FLOAT, GL_FALSE, sizeof(SenceVertex), NULL+offsetof(SenceVertex, positionCoord));
-    
-    //7.打开textureCoordsSlot 属性并传递数据到textureCoordsSlot（纹理坐标）
-    glEnableVertexAttribArray(textureCoordsSlot);
-    glVertexAttribPointer(textureCoordsSlot, 2, GL_FLOAT, GL_FALSE, sizeof(SenceVertex), NULL+offsetof(SenceVertex, textureCoord));
-    
-    //8.保存program，页面销毁则释放
-    self.program = program;
-}
-#pragma mark -- shader compile and link
-//link Program
--(GLuint)programWithShaderName:(NSString *)shaderName{
-    //1.编译顶点着色器/片元着色器
-    GLuint vertexShader = [self compileShaderWithName:shaderName type:GL_VERTEX_SHADER];
-    GLuint fragmentShader = [self compileShaderWithName:shaderName type:GL_FRAGMENT_SHADER  ];
-    //2.将顶点/片元附着到program
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    
-    //3.linkProgram
-    glLinkProgram(program);
-    
-    //4.检查linkSuccess;
-    GLint linkSuccess;
-    glGetProgramiv(program, GL_LINK_STATUS, &linkSuccess);
-    if(linkSuccess == GL_FALSE){
-        GLchar messages[256];
-        glGetProgramInfoLog(program, sizeof(messages), 0, &messages[0]);
-        NSString *messageString = [NSString stringWithUTF8String:messages];
-        NSAssert(NO, @"program连接失败:%@",messageString);
-        exit(1);
+#pragma mark - Action
+//当调用buttopTop按钮时,界面变换(需要重新子view的位置以及约束信息)
+- (void)actionPanTop:(UIPanGestureRecognizer *)pan {
+   
+    //1.判断springView是否发生改变
+    if ([self.springView hasChange]) {
+        //2.给springView 更新纹理
+        [self.springView updateTexture];
+        //3.重置滑杆位置(因为此时相当于对一个张新图重新进行拉伸处理~)
+        self.saveSlider.value = 0.5f;
     }
-    //5.返回program
-    return program;
+    
+    //修改约束信息;
+    CGPoint translation = [pan translationInView:self.view];
+    NSLog(@"------actionPanTop translation:%f",translation.y);
+    //修改topLineSpace的预算条件;
+    self.topLineSpace = MIN(self.topLineSpace + translation.y,
+                                     self.bottomLineSpace);
+    
+    //纹理Top = springView的height * textureTopY
+    //606
+    CGFloat textureTop = self.springView.bounds.size.height * self.springView.textureTopY;
+//    NSLog(@"%f,%f",self.springView.bounds.size.height,self.springView.textureTopY);
+//    NSLog(@"%f",textureTop);
+    
+    //设置topLineSpace的约束常量;
+    self.topLineSpace = MAX(self.topLineSpace, textureTop);
+    //将pan移动到view的Zero位置;
+    [pan setTranslation:CGPointZero inView:self.view];
+    
+    //计算移动了滑块后的currentTop和currentBottom
+//    self.currentTop = [self stretchAreaYWithLineSpace:self.topLineSpace.constant];
+//    self.currentBottom = [self stretchAreaYWithLineSpace:self.bottomLineSpace.constant];
 }
-//编译shader代码
--(GLuint)compileShaderWithName:(NSString *)name type:(GLenum)shaderType{
-    //1.获取shader路径
-    NSString *shaderPath = [[NSBundle mainBundle] pathForResource:name ofType:shaderType == GL_VERTEX_SHADER ? @"vsh" :@"fsh"];
-    NSError *error;
-    NSString *shaderString = [NSString stringWithContentsOfFile:shaderPath encoding:NSUTF8StringEncoding error:&error];
-    if(error){
-        NSAssert(NO, @"读取shader失败");
-        exit(1);
+
+-(void)updateControlViews{
+       CGFloat marginImgTop = self.topLineSpace + self.springView.frame.origin.y;
+       
+       CGRect toplineFrame = self.topLine.frame;
+       self.topLine.frame = CGRectMake(toplineFrame.origin.x, marginImgTop, toplineFrame.size.width, toplineFrame.size.height);
+       
+       CGFloat marginImgBottom = self.bottomLineSpace + self.springView.frame.origin.y;
+       
+       CGRect bottomLineFrame = self.bottomLine.frame;
+       self.bottomLine.frame = CGRectMake(bottomLineFrame.origin.x, marginImgBottom, bottomLineFrame.size.width, bottomLineFrame.size.height);
+       
+//       CGRect topButtomFrame =  self.topButton.frame;
+//       self.topButton.frame = CGRectMake(topButtomFrame.origin.x, marginImgTop-24, topButtomFrame.size.width, topButtomFrame.size.height);
+//
+//       CGRect bottomBtnFrame = self.bottomButton.frame;
+//       self.bottomButton.frame = CGRectMake(bottomBtnFrame.origin.x, marginImgBottom-24, bottomBtnFrame.size.width, bottomBtnFrame.size.height);
+       
+       CGRect maskFrame = self.mask.frame;
+       self.mask.frame = CGRectMake(maskFrame.origin.x, marginImgTop, maskFrame.size.width, marginImgBottom - marginImgTop);
+}
+//与buttopTop 按钮事件所发生的内容几乎一样,不做详细注释了.
+- (void)actionPanBottom:(UIPanGestureRecognizer *)pan {
+    if ([self.springView hasChange]) {
+        [self.springView updateTexture];
+        self.saveSlider.value = 0.5f;
     }
-    //2.创建shader->根据shaderType
-    GLuint shader = glCreateShader(shaderType);
     
-    //3.获取shader source
-    const char *shaderStringUTF8 = [shaderString UTF8String];
-    int shaderStringLength = (int )[shaderString length];
-    glShaderSource(shader, 1, &shaderStringUTF8, &shaderStringLength);
+    CGPoint translation = [pan translationInView:self.view];
+//    self.bottomLineSpace.constant = MAX(self.bottomLineSpace.constant + translation.y,
+//                                        self.topLineSpace.constant);
+    CGFloat textureBottom = self.springView.bounds.size.height * self.springView.textureBottomY;
+//    self.bottomLineSpace.constant = MIN(self.bottomLineSpace.constant, textureBottom);
+    [pan setTranslation:CGPointZero inView:self.view];
     
-    //4.编译shader
-    glCompileShader(shader);
+//    self.currentTop = [self stretchAreaYWithLineSpace:self.topLineSpace.constant];
+//    self.currentBottom = [self stretchAreaYWithLineSpace:self.bottomLineSpace.constant];
     
-    //5.查看编译是否成功
-    GLint compileSuccess;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &compileSuccess);
-    if(compileSuccess == GL_FALSE){
-        GLchar message[256];
-        glGetShaderInfoLog(shader, sizeof(message), 0, &message[0]);
-        NSString *messageString = [NSString stringWithUTF8String:message];
-        NSAssert(NO, @"shader编译失败:%@",messageString);
-        exit(1);
-    }
-    //6.返回shader
-    return shader;
+    NSLog(@"-------actionPanBottom");
+}
+-(void)sliderValueDidChanged:(UISlider *)sender{
+//    NSLog(@"触发了 sliderValueDidChanged");
+    
+       //获取图片的中间拉伸区域高度;
+       //获取图片的中间拉伸区域高度: (currentBottom - currentTop)*sliderValue + 0.5;
+       CGFloat newHeight = (self.currentBottom - self.currentTop) * ((sender.value) + 0.5);
+        NSLog(@"%f",sender.value);
+       NSLog(@"%f",newHeight);
+    
+    //将currentTop和currentBottom以及新图片的高度传给springView,进行拉伸操作;
+    [self.springView stretchingFromStartY:self.currentTop
+                                   toEndY:self.currentBottom
+                            withNewHeight:newHeight];
+}
+- (void)sliderDidTouchDown:(id)sender {
+  NSLog(@"触发了 sliderDidTouchDown");
+    [self setViewsHidden:YES];
+}
+- (void)sliderDidTouchUp:(id)sender {
+   NSLog(@"触发了 sliderDidTouchUp");
+     [self setViewsHidden:NO];
+}
+
+-(void)saveAction:(UIButton *)sender{
+    NSLog(@"点击了保存按钮");
+    //1.获取处理后的图片;
+    UIImage *image = [self.springView createResult];
+    //2.将图片存储到系统相册中;
+    [self saveImage:image];
 }
 
 
-
-//获取渲染缓存区的宽
-- (GLint)drawableWidth {
-    GLint backingWidth;
-    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &backingWidth);
-    return backingWidth;
+// 保存图片到相册
+- (void)saveImage:(UIImage *)image {
+    //将图片通过PHPhotoLibrary保存到系统相册
+    [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+        [PHAssetChangeRequest creationRequestForAssetFromImage:image];
+    } completionHandler:^(BOOL success, NSError * _Nullable error) {
+        NSLog(@"success = %d, error = %@ 图片已保存到相册", success, error);
+    }];
 }
-//获取渲染缓存区的高
-- (GLint)drawableHeight {
-    GLint backingHeight;
-    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &backingHeight);
-    return backingHeight;
+//相关控件隐藏功能
+- (void)setViewsHidden:(BOOL)hidden {
+    self.topLine.hidden = hidden;
+    self.bottomLine.hidden = hidden;
+    self.topButton.hidden = hidden;
+    self.bottomButton.hidden = hidden;
+    self.mask.hidden = hidden;
 }
-
-
+#pragma mark - LongLegViewViewDelegate
+//代理方法(SpringView拉伸区域修改)
+- (void)springViewStretchAreaDidChanged:(LongLegView *)springView {
+    
+    //拉伸结束后,更新topY,bottomY,topLineSpace,bottomLineSpace 位置;
+    CGFloat topY = self.springView.bounds.size.height * self.springView.stretchAreaTopY;
+    CGFloat bottomY = self.springView.bounds.size.height * self.springView.stretchAreaBottomY;
+//    self.topLineSpace.constant = topY;
+//    self.bottomLineSpace.constant = bottomY;
+}
 @end
