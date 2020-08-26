@@ -19,6 +19,11 @@ typedef enum CCVertexInputIndex{
     CCVertexInputIndexViewportSize = 1,
 }CCVertexInputIndex;
 
+//纹理索引
+typedef enum CCTextureIndex{
+    CCTextureIndexBaseColor = 0,
+    
+}CCTextureIndex;
 //结构体：顶点/颜色值
 typedef struct {
     //像素空间的位置
@@ -28,6 +33,8 @@ typedef struct {
     //RGBA颜色
     // float float float float
     vector_float4 color;
+    // 2D 纹理
+    vector_float2 textureCoordinate;
 }CCVertex;
 
 #endif /* CCShaderTypes_h */

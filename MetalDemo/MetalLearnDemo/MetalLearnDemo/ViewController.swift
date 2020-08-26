@@ -12,7 +12,7 @@ import MetalKit
 class ViewController: UIViewController {
 
     private var mtkView:MTKView?;
-    private var renderer:CCRenderer?
+    private var renderer:MyImageRender?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,7 +36,7 @@ class ViewController: UIViewController {
             print("Metal is not supported on this device");
             return;
         }
-        self.renderer = CCRenderer(metalKitView: self.mtkView!);
+        self.renderer = MyImageRender(metalKitView: self.mtkView!);
         if(self.renderer == nil){
             print("Render failed initializetion");
             return;
