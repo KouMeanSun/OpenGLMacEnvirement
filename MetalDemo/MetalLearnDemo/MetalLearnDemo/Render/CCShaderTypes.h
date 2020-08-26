@@ -32,7 +32,7 @@ typedef struct {
     vector_float2 position;
     //RGBA颜色
     // float float float float
-    vector_float4 color;
+    //vector_float4 color;
     // 2D 纹理
     vector_float2 textureCoordinate;
 }CCVertex;

@@ -50,7 +50,9 @@
         //3.设置渲染管道相关操作
         [self setupPipeLine];
         //4.加载纹理TGA 文件
-        [self setupTexture];
+//        [self setupTexture];
+        //5.加载png/jpg
+        [self setupTexturePNG];
         
     }
     return self;
@@ -102,6 +104,77 @@
  
 }
 
+-(void)setupTexturePNG
+{
+    //1.获取图片
+    UIImage *image = [UIImage imageNamed:@"kun.jpg"];
+    //2.纹理描述符
+    MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
+    //表示每个像素有蓝色,绿色,红色和alpha通道.其中每个通道都是8位无符号归一化的值.(即0映射成0,255映射成1);
+    textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
+    //设置纹理的像素尺寸
+    textureDescriptor.width = image.size.width;
+    textureDescriptor.height = image.size.height;
+    
+    //3.使用描述符从设备中创建纹理
+    _texture = [_device newTextureWithDescriptor:textureDescriptor];
+    
+    /*
+     typedef struct
+     {
+     MTLOrigin origin; //开始位置x,y,z
+     MTLSize   size; //尺寸width,height,depth
+     } MTLRegion;
+     */
+    //MLRegion结构用于标识纹理的特定区域。 demo使用图像数据填充整个纹理；因此，覆盖整个纹理的像素区域等于纹理的尺寸。
+    //4. 创建MTLRegion 结构体  [纹理上传的范围]
+    MTLRegion region = {{ 0, 0, 0 }, {image.size.width, image.size.height, 1}};
+    
+    //5.获取图片数据
+    Byte *imageBytes = [self loadImage:image];
+    
+    //6.UIImage的数据需要转成二进制才能上传，且不用jpg、png的NSData
+    if (imageBytes) {
+        [_texture replaceRegion:region
+                        mipmapLevel:0
+                          withBytes:imageBytes
+                        bytesPerRow:4 * image.size.width];
+        free(imageBytes);
+        imageBytes = NULL;
+    }
+    
+}
+//从UIImage 中读取Byte 数据返回
+- (Byte *)loadImage:(UIImage *)image {
+    // 1.获取图片的CGImageRef
+    CGImageRef spriteImage = image.CGImage;
+    
+    // 2.读取图片的大小
+    size_t width = CGImageGetWidth(spriteImage);
+    size_t height = CGImageGetHeight(spriteImage);
+   
+    //3.计算图片大小.rgba共4个byte
+    Byte * spriteData = (Byte *) calloc(width * height * 4, sizeof(Byte));
+    
+    //4.创建画布
+    CGContextRef spriteContext = CGBitmapContextCreate(spriteData, width, height, 8, width*4, CGImageGetColorSpace(spriteImage), kCGImageAlphaPremultipliedLast);
+    
+    //5.在CGContextRef上绘图
+    CGContextDrawImage(spriteContext, CGRectMake(0, 0, width, height), spriteImage);
+    
+    //6.图片翻转过来
+    CGRect rect = CGRectMake(0, 0, width, height);
+    CGContextTranslateCTM(spriteContext, rect.origin.x, rect.origin.y);
+    CGContextTranslateCTM(spriteContext, 0, rect.size.height);
+    CGContextScaleCTM(spriteContext, 1.0, -1.0);
+    CGContextTranslateCTM(spriteContext, -rect.origin.x, -rect.origin.y);
+    CGContextDrawImage(spriteContext, rect, spriteImage);
+    
+    //7.释放spriteContext
+    CGContextRelease(spriteContext);
+    
+    return spriteData;
+}
 
 -(void)setupPipeLine
 {
