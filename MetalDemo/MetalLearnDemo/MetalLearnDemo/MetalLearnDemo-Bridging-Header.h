@@ -3,4 +3,4 @@
 //
 #import "MyRender.h"
 #import "TriangleRender.h"
-
+#import "CCRenderer.h"

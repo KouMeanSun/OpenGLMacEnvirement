@@ -12,8 +12,7 @@ import MetalKit
 class ViewController: UIViewController {
 
     private var mtkView:MTKView?;
-    private var myRender:TriangleRender?;
-    
+    private var renderer:CCRenderer?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -37,14 +36,14 @@ class ViewController: UIViewController {
             print("Metal is not supported on this device");
             return;
         }
-        self.myRender = TriangleRender(metalKitView: self.mtkView!);
-        if(self.myRender == nil){
+        self.renderer = CCRenderer(metalKitView: self.mtkView!);
+        if(self.renderer == nil){
             print("Render failed initializetion");
             return;
         }
         // Initialize our render with the view size
-        self.myRender!.mtkView(self.mtkView!, drawableSizeWillChange: self.mtkView!.drawableSize);
-        self.mtkView?.delegate = self.myRender;
+        self.renderer!.mtkView(self.mtkView!, drawableSizeWillChange: self.mtkView!.drawableSize);
+        self.mtkView?.delegate = self.renderer;
     }
 
 }
