@@ -17,7 +17,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         window.frame = UIScreen.main.bounds;
         window.backgroundColor = UIColor.white;
-        let viewController = ViewController();
+//        let viewController = ViewController();
+        let viewController = MetalRenderCameraController();
         let nav = UINavigationController(rootViewController: viewController);
         window.rootViewController = nav;
         window.makeKeyAndVisible();

@@ -5,3 +5,4 @@
 #import "TriangleRender.h"
 #import "CCRenderer.h"
 #import "MyImageRender.h"
+#import "MetalRenderCameraController.h"
